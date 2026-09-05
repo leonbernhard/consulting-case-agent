@@ -8,10 +8,9 @@ st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout
 # 1. API Key setzen
 if "GEMINI_API_KEY" in st.secrets:
     os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
-
 # 2. Modell initialisieren
 gemini_llm = LLM(
-    model="gemini-2.0-flash",
+    model="gemini-3.6-flash",
     api_key=os.environ["GEMINI_API_KEY"]
 )
 
