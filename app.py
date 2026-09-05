@@ -11,7 +11,7 @@ if "GEMINI_API_KEY" in st.secrets:
 
 # 2. Modell initialisieren
 gemini_llm = LLM(
-    model="gemini/gemini-3.6-flash",
+    model="gemini/gemini-2.0-flash",
     api_key=os.environ["GEMINI_API_KEY"]
 )
 
