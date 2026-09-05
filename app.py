@@ -6,7 +6,8 @@ from crewai import Agent, Crew, Process, Task, LLM
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
 
 # 1. API Key setzen
-os.environ["GEMINI_API_KEY"] = "DEIN_GEMINI_API_KEY_HIER"
+if "GEMINI_API_KEY" in st.secrets:
+    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 
 # 2. Modell initialisieren
 gemini_llm = LLM(
