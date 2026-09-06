@@ -34,7 +34,7 @@ gemini_llm = LLM(
 
 # 3. Hilfsfunktionen für Exporte
 def create_html_report(title, framework, language, analysis, mece, hypothesis):
-    """Erstellt ein professionelles, druckoptimiertes Executive HTML/PDF Dashboard mit sauberen A4-Rändern."""
+    """Erstellt ein professionelles, druckoptimiertes Executive HTML/PDF Dashboard mit garantierten A4-Seitenrändern."""
     import html
     import re
 
@@ -123,10 +123,9 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
-        /* A4-Druckeinrichtung mit festen Rändern */
         @page {{
             size: A4;
-            margin: 20mm 18mm 20mm 18mm;
+            margin: 15mm;
         }}
         body {{
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
@@ -134,13 +133,13 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
             color: #1E293B;
             background-color: #F8FAFC;
             margin: 0;
-            padding: 30px;
+            padding: 25px;
         }}
         .container {{
             max-width: 850px;
             margin: 0 auto;
             background: #FFFFFF;
-            padding: 40px 45px;
+            padding: 35px 40px;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
             box-sizing: border-box;
@@ -201,19 +200,19 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
             text-align: center;
         }}
         
-        /* Druck-Spezifische Anpassung für perfektes PDF-A4 */
+        /* Druck-Anpassung: Erzwingt äußere Papier-Seitenränder im PDF */
         @media print {{
-            body {{
+            html, body {{
                 background: #FFFFFF !important;
-                padding: 0 !important;
                 margin: 0 !important;
+                padding: 0 !important;
             }}
             .container {{
                 box-shadow: none !important;
                 padding: 0 !important;
-                margin: 0 !important;
-                max-width: 100% !important;
-                width: 100% !important;
+                margin: 12mm auto !important; /* Papier-Seitenränder oben/unten/links/rechts */
+                width: 90% !important;
+                max-width: 90% !important;
             }}
         }}
     </style>
