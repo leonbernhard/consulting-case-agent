@@ -8,6 +8,7 @@ from docx.shared import Pt, RGBColor, Inches
 
 # Seiten-Konfiguration
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
+
 # EXECUTIVE C-LEVEL STYLING (CSS INJECTION)
 EXECUTIVE_CSS = """
 <style>
@@ -516,7 +517,7 @@ with st.sidebar:
         os.environ["GEMINI_API_KEY"] = user_key.strip()
         gemini_llm = LLM(model="gemini-3.6-flash", api_key=user_key.strip())
 
-# HAUPTBEREICH: C-Level Header Banner (Exakt über den Demo-Cases)
+# HAUPTBEREICH: C-Level Header Banner
 st.markdown(f"""
     <div style="background-color: #FFFFFF; padding: 20px 24px; border-radius: 8px; border: 1px solid #E2E8F0; border-left: 6px solid #0F2C59; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
         <h1 style="color: #0F2C59; font-size: 26px; font-weight: 700; margin: 0 0 6px 0;">{ui_title}</h1>
@@ -531,6 +532,33 @@ DEMO_CASES = {
     "M&A Due Diligence": "Mandant: Finanzinvestor / Private Equity.\nProblemstellung: Bewertung eines potenziellen Akquisitionsziels im Bereich B2B-Software vor Beginn der detaillierten Commercial Due Diligence.\nZiel: Validierung des nachhaltigen EBITDA-Aussagewerts, Identifikation wesentlicher Geschäftsrisiken und Prüfung der Run-Rate im Hinblick auf das Synergiepotenzial.",
     "Market Entry": "Mandant: E-Commerce-Händler für Premium-Konsumgüter.\nProblemstellung: Geplante Expansion in zwei neue europäische Märkte bei einem Investitionsbudget von 2,0 Mio. €.\nZiel: Evaluierung von Markteintrittsbarrieren, Kundenakquisitionskosten (CAC) und der erwarteten Amortisationsdauer (Payback Period)."
 }
+
+# 7.1 Session State Initialisierung & Demo-Button UI
+if "case_text" not in st.session_state:
+    st.session_state["case_text"] = ""
+
+col_demo, col_empty = st.columns([1, 3])
+with col_demo:
+    if st.button(ui_demo_btn):
+        st.session_state["case_text"] = DEMO_CASES.get(framework_focus, DEMO_CASES["General Profitability"])
+
+# 7.2 Case Briefing Textarea Eingabefeld
+case_input = st.text_area(
+    ui_input_label,
+    value=st.session_state["case_text"],
+    height=180,
+    placeholder=ui_input_placeholder
+)
+
+# 7.3 Formatierungsregeln für Agenten
+FORMATTING_RULES = f"""
+STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
+1. KEINE ASCII-Boxen oder Rahmenelemente (+---+, |---|, etc.) verwenden.
+2. Für MECE-Strukturen und Baumdarstellungen AUSSCHLIESSLICH Standard-Markdown-Listen mit Einrückungen verwenden.
+3. KEINE H1-Überschriften (`#`) generieren. Nutze ausschließlich Unterüberschriften ab Ebene 2 (`##`).
+4. Für Tabellen ausschließlich sauberes Markdown-Tabellenformat nutzen (`| Spalte 1 | Spalte 2 |`).
+5. Gesamtsprache der Ausgabe: Strikt auf {language}.
+"""
 
 # 8. Agenten-Analyse (Mit Zero-Quota Caching für Demo-Cases)
 PRECACHED_PROFITABILITY = {
@@ -669,19 +697,6 @@ if st.session_state.get("has_analysis", False):
 
     with tab3:
         st.markdown(f'<div style="background: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">{out_hypothesis}</div>', unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    tab1, tab2, tab3 = st.tabs([ui_tab1, ui_tab2, ui_tab3])
-
-    with tab1:
-        st.markdown(out_analysis)
-
-    with tab2:
-        st.markdown(out_mece)
-
-    with tab3:
-        st.markdown(out_hypothesis)
 
     st.markdown("---")
     
