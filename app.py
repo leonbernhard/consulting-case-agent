@@ -249,21 +249,108 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
     return html_content
 
 def create_docx_report(title, framework, analysis, mece, hypothesis):
-    """Erstellt ein sauberes Microsoft Word Dokument (.docx)."""
+    """Erstellt ein professionelles Microsoft Word Dokument (.docx) mit echten Überschriften, Listen und Tabellen."""
     doc = Document()
+    
+    # Dokumenten-Titel & Subtitle
     heading = doc.add_heading(title, level=0)
     heading.style.font.color.rgb = RGBColor(15, 44, 89)
     
-    p = doc.add_paragraph()
-    p.add_run(f"Framework Focus: {framework}\n").bold = True
-    
-    doc.add_heading("1. Executive Summary & SCR", level=1)
-    doc.add_paragraph(analysis)
-    doc.add_heading("2. MECE Issue Tree", level=1)
-    doc.add_paragraph(mece)
-    doc.add_heading("3. Hypothesen & KPI Matrix", level=1)
-    doc.add_paragraph(hypothesis)
-    
+    p_sub = doc.add_paragraph()
+    run_sub = p_sub.add_run(f"Framework Focus: {framework}")
+    run_sub.bold = True
+    p_sub.paragraph_format.space_after = Pt(18)
+
+    def add_formatted_text(paragraph, text):
+        """Löst Fettgedrucktes (**text**) in native Word-Runs auf."""
+        parts = re.split(r'(\*\*.*?\*\*)', text)
+        for part in parts:
+            if part.startswith('**') and part.endswith('**'):
+                run = paragraph.add_run(part[2:-2])
+                run.bold = True
+            else:
+                if part:
+                    paragraph.add_run(part)
+
+    def render_docx_table(t_lines):
+        """Baut aus Markdown-Pipes eine echte Microsoft Word Tabelle mit Gitterlinien."""
+        rows_data = []
+        for line in t_lines:
+            cleaned = line.strip().strip('|')
+            cells = [c.strip() for c in cleaned.split('|')]
+            if all(re.match(r'^:?-+:?$', c) for c in cells if c):
+                continue
+            rows_data.append(cells)
+        
+        if not rows_data:
+            return
+
+        col_count = max(len(r) for r in rows_data)
+        table = doc.add_table(rows=len(rows_data), cols=col_count)
+        table.style = 'Table Grid'
+        
+        for r_idx, row in enumerate(rows_data):
+            for c_idx, cell_text in enumerate(row):
+                if c_idx < col_count:
+                    cell = table.cell(r_idx, c_idx)
+                    p = cell.paragraphs[0]
+                    p.paragraph_format.space_before = Pt(3)
+                    p.paragraph_format.space_after = Pt(3)
+                    add_formatted_text(p, cell_text)
+                    if r_idx == 0:
+                        for run in p.runs:
+                            run.bold = True
+
+    def add_md_section(section_title, md_text):
+        """Wandelt Markdown-Abschnitte in strukturierte Word-Elemente um."""
+        h = doc.add_heading(section_title, level=1)
+        h.style.font.color.rgb = RGBColor(15, 44, 89)
+        h.paragraph_format.space_before = Pt(14)
+        h.paragraph_format.space_after = Pt(6)
+
+        lines = md_text.strip().split('\n')
+        table_lines = []
+
+        for line in lines:
+            line_str = line.strip()
+
+            if '|' in line_str and line_str.count('|') >= 2:
+                table_lines.append(line_str)
+                continue
+            else:
+                if table_lines:
+                    render_docx_table(table_lines)
+                    table_lines = []
+
+            if not line_str:
+                continue
+
+            if line_str.startswith('### '):
+                p = doc.add_heading(level=2)
+                add_formatted_text(p, line_str[4:])
+                p.paragraph_format.space_before = Pt(8)
+                p.paragraph_format.space_after = Pt(2)
+            elif line_str.startswith('## '):
+                p = doc.add_heading(level=2)
+                add_formatted_text(p, line_str[3:])
+                p.paragraph_format.space_before = Pt(10)
+                p.paragraph_format.space_after = Pt(4)
+            elif line_str.startswith('- ') or line_str.startswith('* '):
+                p = doc.add_paragraph(style='List Bullet')
+                add_formatted_text(p, line_str[2:])
+                p.paragraph_format.space_after = Pt(2)
+            else:
+                p = doc.add_paragraph()
+                add_formatted_text(p, line_str)
+                p.paragraph_format.space_after = Pt(4)
+
+        if table_lines:
+            render_docx_table(table_lines)
+
+    add_md_section("1. Executive Summary & SCR", analysis)
+    add_md_section("2. MECE Issue Tree", mece)
+    add_md_section("3. Hypothesen & KPI Matrix", hypothesis)
+
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
