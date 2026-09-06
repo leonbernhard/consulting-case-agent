@@ -1,13 +1,16 @@
 import os
+import io
+import re
 import streamlit as st
 from crewai import Agent, Crew, Process, Task, LLM
+from docx import Document
+from docx.shared import Pt, RGBColor, Inches
 
 # Seiten-Konfiguration
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
 
 # 1. API Key prüfen & abfangen
 api_key = None
-
 try:
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
@@ -29,12 +32,189 @@ gemini_llm = LLM(
     api_key=api_key
 )
 
-# 3. Sprachauswahl in der Seitenleiste
+# 3. Hilfsfunktionen für Exporte
+def create_html_report(title, framework, language, analysis, mece, hypothesis):
+    """Erstellt ein hochgradig gestaltetes HTML Executive Dashboard."""
+    import html
+    
+    def md_to_html_simple(text):
+        lines = text.split('\n')
+        html_lines = []
+        in_list = False
+        in_table = False
+        
+        for line in lines:
+            line_str = line.strip()
+            if line_str.startswith('|'):
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                if not in_table:
+                    html_lines.append('<table class="excel-table">')
+                    in_table = True
+                
+                cells = [c.strip() for c in line_str.split('|')[1:-1]]
+                if all(set(c).issubset({'-', ':', ' '}) for c in cells):
+                    continue
+                
+                row_html = '<tr>' + ''.join(f'<td>{html.escape(c)}</td>' for c in cells) + '</tr>'
+                html_lines.append(row_html)
+                continue
+            else:
+                if in_table:
+                    html_lines.append('</table>')
+                    in_table = False
+
+            if line_str.startswith('### '):
+                html_lines.append(f'<h3>{html.escape(line_str[4:])}</h3>')
+            elif line_str.startswith('## '):
+                html_lines.append(f'<h2>{html.escape(line_str[3:])}</h2>')
+            elif line_str.startswith('- ') or line_str.startswith('* '):
+                if not in_list:
+                    html_lines.append('<ul>')
+                    in_list = True
+                item_text = line_str[2:]
+                item_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', item_text)
+                html_lines.append(f'<li>{item_text}</li>')
+            else:
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                if line_str:
+                    formatted = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', line_str)
+                    html_lines.append(f'<p>{formatted}</p>')
+
+        if in_list:
+            html_lines.append('</ul>')
+        if in_table:
+            html_lines.append('</table>')
+            
+        return '\n'.join(html_lines)
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{title}</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1E293B;
+            background-color: #F8F9FA;
+            margin: 0;
+            padding: 40px;
+        }}
+        .container {{
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #FFFFFF;
+            padding: 50px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }}
+        .header {{
+            border-bottom: 3px solid #0F2C59;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }}
+        h1 {{ color: #0F2C59; font-size: 28px; margin-bottom: 5px; }}
+        .badge {{
+            display: inline-block;
+            background: #0F2C59;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+        }}
+        h2 {{ color: #0F2C59; font-size: 20px; border-left: 4px solid #0F2C59; padding-left: 10px; margin-top: 35px; }}
+        h3 {{ color: #334155; font-size: 16px; margin-top: 20px; }}
+        p, li {{ font-size: 14px; color: #334155; }}
+        ul {{ padding-left: 20px; }}
+        .excel-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 13px;
+        }}
+        .excel-table th, .excel-table td {{
+            border: 1px solid #E2E8F0;
+            padding: 10px 12px;
+            text-align: left;
+        }}
+        .excel-table tr:nth-child(even) {{ background-color: #F8FAFC; }}
+        .excel-table tr:first-child {{ background-color: #0F2C59; color: white; font-weight: bold; }}
+        .footer {{
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #E2E8F0;
+            font-size: 12px;
+            color: #94A3B8;
+            text-align: center;
+        }}
+        @media print {{
+            body {{ background: white; padding: 0; }}
+            .container {{ box-shadow: none; padding: 0; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="badge">{framework}</span>
+            <h1>{title}</h1>
+            <p style="color: #64748B; margin: 0;">Automated AI Case Analysis Report</p>
+        </div>
+        
+        <h2>1. Executive Summary & SCR</h2>
+        {md_to_html_simple(analysis)}
+        
+        <h2>2. MECE Issue Tree</h2>
+        {md_to_html_simple(mece)}
+        
+        <h2>3. Hypothesen & KPI Matrix</h2>
+        {md_to_html_simple(hypothesis)}
+        
+        <div class="footer">
+            Generated by AI Consulting & Case Structuring Agent | Confidential & Professional Support Tool
+        </div>
+    </div>
+</body>
+</html>"""
+    return html_content
+
+def create_docx_report(title, framework, analysis, mece, hypothesis):
+    """Erstellt ein sauberes Microsoft Word Dokument (.docx)."""
+    doc = Document()
+    
+    # Titel
+    heading = doc.add_heading(title, level=0)
+    heading.style.font.color.rgb = RGBColor(15, 44, 89)
+    
+    p = doc.add_paragraph()
+    p.add_run(f"Framework Focus: {framework}\n").bold = True
+    
+    doc.add_heading("1. Executive Summary & SCR", level=1)
+    doc.add_paragraph(analysis)
+    
+    doc.add_heading("2. MECE Issue Tree", level=1)
+    doc.add_paragraph(mece)
+    
+    doc.add_heading("3. Hypothesen & KPI Matrix", level=1)
+    doc.add_paragraph(hypothesis)
+    
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+# 4. Sprachauswahl in Seitenleiste
 with st.sidebar:
     st.header("⚙️ Settings / Einstellungen")
     language = st.selectbox("Language / Sprache", ["Deutsch", "English"])
 
-# 4. Dynamische UI-Texte definieren
+# 5. Dynamische UI-Texte
 if language == "English":
     ui_title = "📊 Consulting Case Structuring Agent"
     ui_subtitle = "Structured case analysis, MECE issue trees, and data-driven hypothesis development."
@@ -57,8 +237,9 @@ if language == "English":
     ui_tab1 = "📌 Executive Summary & SCR"
     ui_tab2 = "🌳 MECE Issue Tree"
     ui_tab3 = "💡 Hypotheses & KPI Matrix"
-    ui_download = "📄 Download Full Management Report (.md)"
-    ui_report_hdr = "📊 Client Analysis Report"
+    ui_report_hdr = "Client Analysis Report"
+    ui_export_hdr = "📥 Export Deliverable"
+    ui_format_label = "Select Export Format:"
 else:
     ui_title = "📊 Consulting Case Structuring Agent"
     ui_subtitle = "Strukturierte Case-Analyse, MECE-Problembäume und datengestützte Hypothesen-Entwicklung."
@@ -81,10 +262,11 @@ else:
     ui_tab1 = "📌 Executive Summary & SCR"
     ui_tab2 = "🌳 MECE Issue Tree"
     ui_tab3 = "💡 Hypothesen & KPI-Matrix"
-    ui_download = "📄 Vollständigen Management-Bericht herunterladen (.md)"
-    ui_report_hdr = "📊 Mandanten-Analysebericht"
+    ui_report_hdr = "Mandanten-Analysebericht"
+    ui_export_hdr = "📥 Bericht Exportieren"
+    ui_format_label = "Export-Format wählen:"
 
-# 5. UI-Header & Seitenleiste
+# 6. UI Header & Sidebar
 st.title(ui_title)
 st.caption(ui_subtitle)
 st.divider()
@@ -95,7 +277,7 @@ with st.sidebar:
         ["General Profitability", "Cost Reduction", "M&A Due Diligence", "Market Entry"]
     )
 
-# 6. Branchenneutrale Demo-Cases definieren
+# 7. Demo Cases
 DEMO_CASES = {
     "General Profitability": "Mandant: Mittelständisches Industrieunternehmen (Umsatz: 45 Mio. €).\nProblemstellung: Die EBIT-Marge ist innerhalb der letzten 18 Monate von 11,5 % auf 3,2 % gesunken, obwohl der Umsatz stabil geblieben ist.\nZiel: Identifikation der Hauptursachen für den Margenverfall und Entwicklung konkreter Gegenmaßnahmen zur Erreichung einer Ziel-Marge von > 8,0 %.",
     "Cost Reduction": "Mandant: Internationaler Logistikdienstleister.\nProblemstellung: Stark steigende Opex-Kosten in der Flotte und im Lagerbetrieb schmälern das Gesamtergebnis um 4,5 Mio. € im Vergleich zum Vorjahr.\nZiel: Systematische Kostenstrukturanalyse zur Identifikation von Einsparpotenzialen von mindestens 15 % ohne Qualitätsverlust im Kerngeschäft.",
@@ -118,17 +300,16 @@ case_input = st.text_area(
     placeholder=ui_input_placeholder
 )
 
-# 7. Formatter-Regelwerk gegen ASCII-Salat & Doppel-Header
 FORMATTING_RULES = f"""
 STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
-1. KEINE ASCII-Boxen, Sonderzeichen-Gitter oder Rahmenelemente (+---+, |---|, etc.) verwenden.
-2. Für MECE-Strukturen und Baumdarstellungen AUSSCHLIESSLICH Standard-Markdown-Listen mit Einrückungen verwenden (z. B. `- **Ebene 1**` -> `  * **Ebene 2**`).
-3. KEINE H1-Überschriften (`#`) generieren. Nutze ausschließlich Unterüberschriften ab Ebene 2 (`##`) oder Ebene 3 (`###`).
-4. Für Tabellen ausschließlich sauberes, valides Markdown-Tabellenformat nutzen (`| Spalte 1 | Spalte 2 |`).
+1. KEINE ASCII-Boxen oder Rahmenelemente (+---+, |---|, etc.) verwenden.
+2. Für MECE-Strukturen und Baumdarstellungen AUSSCHLIESSLICH Standard-Markdown-Listen mit Einrückungen verwenden.
+3. KEINE H1-Überschriften (`#`) generieren. Nutze ausschließlich Unterüberschriften ab Ebene 2 (`##`).
+4. Für Tabellen ausschließlich sauberes Markdown-Tabellenformat nutzen (`| Spalte 1 | Spalte 2 |`).
 5. Gesamtsprache der Ausgabe: Strikt auf {language}.
 """
 
-# 8. Button & Agenten-Ausführung
+# 8. Agenten-Analyse
 if st.button(ui_button):
     if not case_input.strip():
         st.warning(ui_warning)
@@ -163,37 +344,28 @@ if st.button(ui_button):
                 description=(
                     f"Analysiere folgendes Case-Briefing unter Berücksichtigung von '{framework_focus}':\n\n"
                     f"{case_input}\n\n"
-                    "Erstelle eine strukturierte Executive Summary im SCR-Format (Situation, Complication, Key Question, Resolution/Approach).\n\n"
+                    "Erstelle eine strukturierte Executive Summary im SCR-Format.\n\n"
                     f"{FORMATTING_RULES}"
                 ),
-                expected_output=f"Strukturierte SCR-Analyse auf {language} ohne H1-Header oder ASCII-Boxen.",
+                expected_output=f"Strukturierte SCR-Analyse auf {language}.",
                 agent=analyzer
             )
             
             t2 = Task(
                 description=(
-                    f"Basierend auf der Analyse von Task 1: Erstelle einen vollständigen MECE Issue Tree auf {language}.\n"
-                    "Anforderungen:\n"
-                    "- Nutze sauber eingerückte Markdown-Listen zur klaren Baum-Darstellung (KEINE ASCII-Art!).\n"
-                    "- Mindestens 3 Hauptäste (Ebene 1) und jeweils 2-3 Unterpunkte (Ebene 2).\n"
-                    "- Halte dich strikt an das MECE-Prinzip.\n\n"
+                    f"Basierend auf Task 1: Erstelle einen vollständigen MECE Issue Tree auf {language}.\n\n"
                     f"{FORMATTING_RULES}"
                 ),
-                expected_output=f"Ein übersichtlicher MECE Issue Tree als eingerückte Markdown-Liste auf {language}.",
+                expected_output=f"Ein übersichtlicher MECE Issue Tree auf {language}.",
                 agent=structurer
             )
             
             t3 = Task(
                 description=(
-                    f"Basierend auf dem MECE Issue Tree: Formuliere genau 3 priorisierte Arbeitshypothesen auf {language}.\n"
-                    "Anforderungen für JEDE Hypothese:\n"
-                    "1. Klare Hypothesenformulierung (Wirkungsmechanismus)\n"
-                    "2. Erwarteter EBIT- bzw. Finanz-Hebel\n"
-                    "3. Benötigte Datenquellen & spezifische KPIs mit konkreten Benchmark-Schwellenwerten.\n"
-                    "Erstelle am Ende eine zusammenfassende Markdown-Tabelle für alle 3 Hypothesen.\n\n"
+                    f"Basierend auf Task 2: Formuliere genau 3 priorisierte Arbeitshypothesen auf {language} inklusive KPI-Matrix.\n\n"
                     f"{FORMATTING_RULES}"
                 ),
-                expected_output=f"3 ausformulierte Hypothesen mit KPI-Validierungsmatrix als Markdown-Tabelle auf {language}.",
+                expected_output=f"3 Hypothesen mit KPI-Validierungsmatrix als Markdown-Tabelle auf {language}.",
                 agent=hypothesis_builder
             )
 
@@ -206,55 +378,78 @@ if st.button(ui_button):
             result = crew.kickoff()
             status.update(label=ui_status_done, state="complete", expanded=False)
 
-        out_analysis = result.tasks_output[0].raw
-        out_mece = result.tasks_output[1].raw
-        out_hypothesis = result.tasks_output[2].raw
+        st.session_state["out_analysis"] = result.tasks_output[0].raw
+        st.session_state["out_mece"] = result.tasks_output[1].raw
+        st.session_state["out_hypothesis"] = result.tasks_output[2].raw
+        st.session_state["has_analysis"] = True
 
-        full_report = f"""# {ui_report_hdr}: {framework_focus}
+# 9. Ergebnisanzeige & Export
+if st.session_state.get("has_analysis", False):
+    out_analysis = st.session_state["out_analysis"]
+    out_mece = st.session_state["out_mece"]
+    out_hypothesis = st.session_state["out_hypothesis"]
 
-## 1. Executive Summary & SCR
-{out_analysis}
+    st.subheader(ui_kpi_hdr)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label=ui_m1_label, value=framework_focus)
+    with col2:
+        st.metric(label=ui_m2_label, value=ui_m2_val, delta=ui_m2_delta)
+    with col3:
+        st.metric(label=ui_m3_label, value=ui_m3_val, delta=ui_m3_delta)
 
----
+    st.markdown("---")
 
-## 2. MECE Issue Tree
-{out_mece}
+    tab1, tab2, tab3 = st.tabs([ui_tab1, ui_tab2, ui_tab3])
 
----
+    with tab1:
+        st.markdown(out_analysis)
 
-## 3. Hypothesen & KPI Matrix
-{out_hypothesis}
-"""
+    with tab2:
+        st.markdown(out_mece)
 
-        # 9. KPI Header Board
-        st.subheader(ui_kpi_hdr)
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric(label=ui_m1_label, value=framework_focus)
-        with col2:
-            st.metric(label=ui_m2_label, value=ui_m2_val, delta=ui_m2_delta)
-        with col3:
-            st.metric(label=ui_m3_label, value=ui_m3_val, delta=ui_m3_delta)
+    with tab3:
+        st.markdown(out_hypothesis)
 
-        st.markdown("---")
-
-        # 10. Dashboard Tabs
-        tab1, tab2, tab3 = st.tabs([ui_tab1, ui_tab2, ui_tab3])
-
-        with tab1:
-            st.markdown(out_analysis)
-
-        with tab2:
-            st.markdown(out_mece)
-
-        with tab3:
-            st.markdown(out_hypothesis)
-
-        st.markdown("---")
-        
-        st.download_button(
-            label=ui_download,
-            data=full_report,
-            file_name=f"case_report_{framework_focus.lower().replace(' ', '_')}_{language.lower()}.md",
-            mime="text/markdown"
+    st.markdown("---")
+    
+    # Multi-Format Export Sektion
+    st.subheader(ui_export_hdr)
+    col_fmt, col_btn = st.columns([2, 2])
+    
+    with col_fmt:
+        export_choice = st.selectbox(
+            ui_format_label,
+            ["HTML Executive Report (.html)", "Microsoft Word (.docx)", "Markdown Raw (.md)"]
         )
+    
+    report_title = f"{ui_report_hdr}: {framework_focus}"
+    file_base = f"case_report_{framework_focus.lower().replace(' ', '_')}"
+
+    with col_btn:
+        st.write(" ")
+        st.write(" ")
+        if export_choice == "HTML Executive Report (.html)":
+            html_data = create_html_report(report_title, framework_focus, language, out_analysis, out_mece, out_hypothesis)
+            st.download_button(
+                label="📄 Download HTML Report",
+                data=html_data,
+                file_name=f"{file_base}.html",
+                mime="text/html"
+            )
+        elif export_choice == "Microsoft Word (.docx)":
+            docx_buffer = create_docx_report(report_title, framework_focus, out_analysis, out_mece, out_hypothesis)
+            st.download_button(
+                label="📄 Download Word Document",
+                data=docx_buffer,
+                file_name=f"{file_base}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+        else:
+            full_md = f"# {report_title}\n\n## 1. SCR\n{out_analysis}\n\n## 2. MECE\n{out_mece}\n\n## 3. Hypothesen\n{out_hypothesis}"
+            st.download_button(
+                label="📄 Download Markdown (.md)",
+                data=full_md,
+                file_name=f"{file_base}.md",
+                mime="text/markdown"
+            )
