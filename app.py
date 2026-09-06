@@ -34,62 +34,83 @@ gemini_llm = LLM(
 
 # 3. Hilfsfunktionen für Exporte
 def create_html_report(title, framework, language, analysis, mece, hypothesis):
-    """Erstellt ein hochgradig gestaltetes HTML Executive Dashboard."""
+    """Erstellt ein professionelles, druckoptimiertes Executive HTML/PDF Dashboard."""
     import html
-    
-    def md_to_html_simple(text):
-        lines = text.split('\n')
-        html_lines = []
+    import re
+
+    def parse_markdown_to_clean_html(md_text):
+        lines = md_text.split('\n')
+        html_out = []
         in_list = False
         in_table = False
-        
+        table_rows = []
+
+        def format_inline(text):
+            escaped = html.escape(text)
+            formatted = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', escaped)
+            formatted = re.sub(r'\*(.*?)\*', r'<em>\1</em>', formatted)
+            return formatted
+
         for line in lines:
             line_str = line.strip()
-            if line_str.startswith('|'):
+
+            # Tabellen-Erkennung (| Spalte 1 | Spalte 2 |)
+            if line_str.startswith('|') and line_str.endswith('|'):
                 if in_list:
-                    html_lines.append('</ul>')
+                    html_out.append('</ul>')
                     in_list = False
-                if not in_table:
-                    html_lines.append('<table class="excel-table">')
-                    in_table = True
                 
                 cells = [c.strip() for c in line_str.split('|')[1:-1]]
-                if all(set(c).issubset({'-', ':', ' '}) for c in cells):
+                # Trennzeilen wie | :--- | :--- | überspringen
+                if all(re.match(r'^:?-+:?$', c) for c in cells):
                     continue
                 
-                row_html = '<tr>' + ''.join(f'<td>{html.escape(c)}</td>' for c in cells) + '</tr>'
-                html_lines.append(row_html)
+                if not in_table:
+                    in_table = True
+                    table_rows = []
+                
+                table_rows.append(cells)
                 continue
             else:
                 if in_table:
-                    html_lines.append('</table>')
+                    html_out.append('<table class="executive-table">')
+                    for i, row in enumerate(table_rows):
+                        tag = 'th' if i == 0 else 'td'
+                        html_out.append('<tr>' + ''.join(f'<{tag}>{format_inline(c)}</{tag}>' for c in row) + '</tr>')
+                    html_out.append('</table>')
                     in_table = False
+                    table_rows = []
 
+            # Überschriften
             if line_str.startswith('### '):
-                html_lines.append(f'<h3>{html.escape(line_str[4:])}</h3>')
+                html_out.append(f'<h3>{format_inline(line_str[4:])}</h3>')
             elif line_str.startswith('## '):
-                html_lines.append(f'<h2>{html.escape(line_str[3:])}</h2>')
+                html_out.append(f'<h2>{format_inline(line_str[3:])}</h2>')
+            elif line_str.startswith('# '):
+                html_out.append(f'<h2>{format_inline(line_str[2:])}</h2>')
+            # Listenpunkte
             elif line_str.startswith('- ') or line_str.startswith('* '):
                 if not in_list:
-                    html_lines.append('<ul>')
+                    html_out.append('<ul class="executive-list">')
                     in_list = True
-                item_text = line_str[2:]
-                item_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', item_text)
-                html_lines.append(f'<li>{item_text}</li>')
+                html_out.append(f'<li>{format_inline(line_str[2:])}</li>')
             else:
                 if in_list:
-                    html_lines.append('</ul>')
+                    html_out.append('</ul>')
                     in_list = False
                 if line_str:
-                    formatted = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', line_str)
-                    html_lines.append(f'<p>{formatted}</p>')
+                    html_out.append(f'<p>{format_inline(line_str)}</p>')
 
         if in_list:
-            html_lines.append('</ul>')
+            html_out.append('</ul>')
         if in_table:
-            html_lines.append('</table>')
-            
-        return '\n'.join(html_lines)
+            html_out.append('<table class="executive-table">')
+            for i, row in enumerate(table_rows):
+                tag = 'th' if i == 0 else 'td'
+                html_out.append('<tr>' + ''.join(f'<{tag}>{format_inline(c)}</{tag}>' for c in row) + '</tr>')
+            html_out.append('</table>')
+
+        return '\n'.join(html_out)
 
     html_content = f"""<!DOCTYPE html>
 <html lang="de">
@@ -97,21 +118,87 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
-        body {{ font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1E293B; background-color: #F8F9FA; margin: 0; padding: 40px; }}
-        .container {{ max-width: 1000px; margin: 0 auto; background: #FFFFFF; padding: 50px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); }}
-        .header {{ border-bottom: 3px solid #0F2C59; padding-bottom: 20px; margin-bottom: 30px; }}
-        h1 {{ color: #0F2C59; font-size: 28px; margin-bottom: 5px; }}
-        .badge {{ display: inline-block; background: #0F2C59; color: white; padding: 4px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; }}
-        h2 {{ color: #0F2C59; font-size: 20px; border-left: 4px solid #0F2C59; padding-left: 10px; margin-top: 35px; }}
-        h3 {{ color: #334155; font-size: 16px; margin-top: 20px; }}
-        p, li {{ font-size: 14px; color: #334155; }}
-        ul {{ padding-left: 20px; }}
-        .excel-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }}
-        .excel-table th, .excel-table td {{ border: 1px solid #E2E8F0; padding: 10px 12px; text-align: left; }}
-        .excel-table tr:nth-child(even) {{ background-color: #F8FAFC; }}
-        .excel-table tr:first-child {{ background-color: #0F2C59; color: white; font-weight: bold; }}
-        .footer {{ margin-top: 50px; padding-top: 20px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #94A3B8; text-align: center; }}
-        @media print {{ body {{ background: white; padding: 0; }} .container {{ box-shadow: none; padding: 0; }} }}
+        @page {{
+            size: A4;
+            margin: 18mm 15mm 18mm 15mm;
+        }}
+        body {{
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            color: #1E293B;
+            background-color: #F8FAFC;
+            margin: 0;
+            padding: 30px;
+        }}
+        .container {{
+            max-width: 900px;
+            margin: 0 auto;
+            background: #FFFFFF;
+            padding: 40px 50px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }}
+        .header {{
+            border-bottom: 2px solid #0F2C59;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }}
+        .badge {{
+            display: inline-block;
+            background: #0F2C59;
+            color: #FFFFFF;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }}
+        h1 {{ color: #0F2C59; font-size: 24px; margin: 0 0 4px 0; font-weight: 700; }}
+        h2 {{ color: #0F2C59; font-size: 17px; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-top: 28px; margin-bottom: 12px; font-weight: 600; page-break-after: avoid; }}
+        h3 {{ color: #334155; font-size: 14px; margin-top: 16px; margin-bottom: 6px; font-weight: 600; page-break-after: avoid; }}
+        p, li {{ font-size: 13px; color: #334155; margin-bottom: 6px; }}
+        .executive-list {{ padding-left: 20px; margin: 8px 0; }}
+        .executive-list li {{ margin-bottom: 4px; }}
+        
+        .executive-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 12px;
+            page-break-inside: avoid;
+        }}
+        .executive-table th {{
+            background-color: #0F2C59;
+            color: #FFFFFF;
+            font-weight: 600;
+            text-align: left;
+            padding: 8px 10px;
+            border: 1px solid #0F2C59;
+        }}
+        .executive-table td {{
+            border: 1px solid #CBD5E1;
+            padding: 8px 10px;
+            vertical-align: top;
+        }}
+        .executive-table tr:nth-child(even) {{ background-color: #F8FAFC; }}
+        
+        .section-block {{ page-break-inside: avoid; }}
+        .footer {{
+            margin-top: 40px;
+            padding-top: 15px;
+            border-top: 1px solid #E2E8F0;
+            font-size: 11px;
+            color: #94A3B8;
+            text-align: center;
+        }}
+        
+        @media print {{
+            body {{ background: #FFFFFF; padding: 0; }}
+            .container {{ box-shadow: none; padding: 0; width: 100%; max-width: none; }}
+            .footer {{ position: fixed; bottom: 0; width: 100%; }}
+        }}
     </style>
 </head>
 <body>
@@ -119,14 +206,24 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
         <div class="header">
             <span class="badge">{framework}</span>
             <h1>{title}</h1>
-            <p style="color: #64748B; margin: 0;">Automated AI Case Analysis Report</p>
+            <p style="color: #64748B; margin: 0; font-size: 12px;">Automated AI Case Analysis Report</p>
         </div>
-        <h2>1. Executive Summary & SCR</h2>
-        {md_to_html_simple(analysis)}
-        <h2>2. MECE Issue Tree</h2>
-        {md_to_html_simple(mece)}
-        <h2>3. Hypothesen & KPI Matrix</h2>
-        {md_to_html_simple(hypothesis)}
+        
+        <div class="section-block">
+            <h2>1. Executive Summary & SCR</h2>
+            {parse_markdown_to_clean_html(analysis)}
+        </div>
+        
+        <div class="section-block">
+            <h2>2. MECE Issue Tree</h2>
+            {parse_markdown_to_clean_html(mece)}
+        </div>
+        
+        <div class="section-block">
+            <h2>3. Hypothesen & KPI Matrix</h2>
+            {parse_markdown_to_clean_html(hypothesis)}
+        </div>
+        
         <div class="footer">
             Generated by AI Consulting & Case Structuring Agent | Confidential & Professional Support Tool
         </div>
