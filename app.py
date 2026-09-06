@@ -209,10 +209,22 @@ def create_docx_report(title, framework, analysis, mece, hypothesis):
     buffer.seek(0)
     return buffer
 
-# 4. Sprachauswahl in Seitenleiste
+# 4. Sprach- & Key-Auswahl in der Seitenleiste
 with st.sidebar:
     st.header("⚙️ Settings / Einstellungen")
     language = st.selectbox("Language / Sprache", ["Deutsch", "English"])
+    
+    st.markdown("---")
+    st.caption("🔑 **API-Key Konfiguration**")
+    user_key = st.text_input(
+        "Eigener Gemini API-Key (Optional)", 
+        type="password", 
+        help="Falls das globale Test-Kontingent erschöpft ist, kannst du hier deinen eigenen kostenlosen Key aus dem Google AI Studio eintragen."
+    )
+    
+    if user_key.strip():
+        os.environ["GEMINI_API_KEY"] = user_key.strip()
+        gemini_llm = LLM(model="gemini-3.6-flash", api_key=user_key.strip())
 
 # 5. Dynamische UI-Texte
 if language == "English":
@@ -375,8 +387,18 @@ if st.button(ui_button):
                 process=Process.sequential
             )
 
-            result = crew.kickoff()
-            status.update(label=ui_status_done, state="complete", expanded=False)
+            # --- ERWEITERTES ERROR-HANDLING FÜR API-LIMITS ---
+            try:
+                result = crew.kickoff()
+                status.update(label=ui_status_done, state="complete", expanded=False)
+            except Exception as e:
+                status.update(label="❌ API-Limit erreicht", state="error", expanded=False)
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    st.error("⚠️ Das kostenlose Tageskontingent der API ist vorübergehend erschöpft. Bitte trage in der linken Seitenleiste einen eigenen kostenlosen Gemini API-Key ein oder versuche es in wenigen Minuten erneut.")
+                else:
+                    st.error(f"Fehler bei der Analyse: {e}")
+                st.stop()
+            # ------------------------------------------------
 
         st.session_state["out_analysis"] = result.tasks_output[0].raw
         st.session_state["out_mece"] = result.tasks_output[1].raw
