@@ -5,14 +5,19 @@ from crewai import Agent, Crew, Process, Task, LLM
 # Seiten-Konfiguration
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
 
-# 1. API Key setzen
-if "GEMINI_API_KEY" in st.secrets:
-    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+# 1. API Key prüfen & setzen
+api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
+
+if not api_key:
+    st.error("⚠️ GEMINI_API_KEY wurde nicht gefunden. Bitte trage den API-Key in den Streamlit Secrets ein.")
+    st.stop()
+
+os.environ["GEMINI_API_KEY"] = api_key
 
 # 2. Modell initialisieren
 gemini_llm = LLM(
     model="gemini-3.6-flash",
-    api_key=os.environ["GEMINI_API_KEY"]
+    api_key=api_key
 )
 
 # 3. Sprachauswahl in der Seitenleiste
