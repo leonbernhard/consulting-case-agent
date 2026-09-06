@@ -321,89 +321,116 @@ STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
 5. Gesamtsprache der Ausgabe: Strikt auf {language}.
 """
 
-# 8. Agenten-Analyse
+# 8. Agenten-Analyse (Mit Zero-Quota Caching für Demo-Cases)
+PRECACHED_PROFITABILITY = {
+    "analysis": """### 1. Situation (S)
+Der Mandant ist ein mittelständisches Industrieunternehmen mit einem stabilen Jahresumsatz von **45,0 Mio. €**. Die historische EBIT-Marge lag bei gesunden **11,5 %** (ca. 5,18 Mio. € EBIT).
+
+### 2. Complication (C)
+Innerhalb der letzten 18 Monate ist die EBIT-Marge drastisch um **8,3 Prozentpunkte auf 3,2 %** (ca. 1,44 Mio. € EBIT) eingebrochen. Da der Umsatz konstant geblieben ist, resultiert der operative Ergebnisverlust von **~3,74 Mio. €** vollständig aus einer Verschlechterung der Kostenstruktur und ungünstigen Preis-/Mix-Effekten.
+
+### 3. Key Question (KQ)
+Welche spezifischen Kosten- und Mix-Treiber haben die Marge erodiert, und mit welchem Maßnahmenpaket kann die EBIT-Marge nachhaltig auf die Zielmarke von **> 8,0 %** (> 3,60 Mio. € EBIT) angehoben werden?
+
+### 4. Resolution & Strategic Approach (R)
+Zur Erreichung der Ziel-Marge ist eine EBIT-Steigerung um mindestens **2,16 Mio. €** erforderlich. Dies erfordert eine Ursachenanalyse entlang des Profitabilitäts-Baums sowie die Implementierung eines zweiphasigen Optimierungsprogramms.""",
+    "mece": """- **1. Erlösqualität & Preisdurchsetzung (Umsatz- & Mix-Hebel)**
+  * **1.1 Preisanpassung & Indexierung:** Unzureichende Weitergabe gestiegener Inputkosten an Endkunden.
+  * **1.2 Portfolio-Mix-Verschiebung:** Shift von hochmargigen Spezialprodukten zu margenschwachen Standardprodukten.
+  * **1.3 Konditionen-Management:** Hohe Rabatte und ungünstige Frachtkonditionen bei A-Kunden.
+
+- **2. Variable Herstellungskosten (COGS / Direct Costs)**
+  * **2.1 Einkauf & Material:** Preisanstiege bei Rohstoffen ohne adäquates Sourcing-Gegenhalten.
+  * **2.2 Fertigungseffizienz:** Sinkende OEE-Raten, erhöhte Ausschussquoten und Überstunden.
+  * **2.3 Logistik & Energie:** Gestiegene Fracht- und Energiekosten pro Produktionseinheit.
+
+- **3. Operative Fixkosten & Overhead (OPEX / Indirect Costs)**
+  * **3.1 SG&A-Kosten:** Ungesteuerter Anstieg der Verwaltungs- und Vertriebskosten (Fixed Cost Creep).
+  * **3.2 Instandhaltung & F&E:** Erhöhte Wartungsaufwände veralteter Anlagen und uneffiziente Projekte.""",
+    "hypothesis": """| Bereich | Primäre Hypothese | Key Metric / Benchmark | Erwarteter EBIT-Hebel |
+| :--- | :--- | :--- | :--- |
+| **Pricing & Mix** | Selektive Preiserhöhungen (3,5 %) und Indexierung von Rohstoffklauseln stabilisieren den Deckungsbeitrag. | **Price Realization Rate > 85 %** | **+0,90 Mio. €** |
+| **COGS & Sourcing** | Neuausschreibung der Top-20 Lieferanten und Reduktion der Ausschussquote senken variable Stückkosten. | **Wareneinsatzquote < 56,1 %** | **+0,85 Mio. €** |
+| **SG&A / Overhead** | Einfrieren nicht-kritischer Sachkosten (Discretionary Spending Freeze) stoppt Fixed Cost Creep. | **SG&A-Quote < 17,6 %** | **+0,41 Mio. €** |"""
+}
+
 if st.button(ui_button):
     if not case_input.strip():
         st.warning(ui_warning)
     else:
-        with st.status(ui_status_start, expanded=True) as status:
-            
-            analyzer = Agent(
-                role="Senior Strategy Consultant",
-                goal=f"Erstelle eine präzise Executive Summary und Situation-Complication-Resolution (SCR) Analyse mit Fokus auf {framework_focus}.",
-                backstory="Erfahrener Strategy Consultant mit Spezialisierung auf prägnante Problemsynthesen und strukturierte Analysen.",
-                llm=gemini_llm,
-                verbose=False
-            )
-            
-            structurer = Agent(
-                role="MECE Framework Architect",
-                goal="Erstelle eine 100% überschneidungsfreie und vollständige Problemstruktur (MECE Issue Tree) in sauberem Markdown.",
-                backstory="Spezialist für logische Problemzerlegung. Achtet strikt auf Vollständigkeit und Überschneidungsfreiheit.",
-                llm=gemini_llm,
-                verbose=False
-            )
+        # Prüfung auf bekannten Demo-Case für Zero-Quota Execution
+        is_default_demo = case_input.strip() == DEMO_CASES["General Profitability"].strip()
+        
+        if is_default_demo and not user_key.strip():
+            st.session_state["out_analysis"] = PRECACHED_PROFITABILITY["analysis"]
+            st.session_state["out_mece"] = PRECACHED_PROFITABILITY["mece"]
+            st.session_state["out_hypothesis"] = PRECACHED_PROFITABILITY["hypothesis"]
+            st.session_state["has_analysis"] = True
+            st.success("⚡ Demo-Analyse sofort geladen (Zero-Quota Mode)!")
+        else:
+            with st.status(ui_status_start, expanded=True) as status:
+                analyzer = Agent(
+                    role="Senior Strategy Consultant",
+                    goal=f"Erstelle eine präzise Executive Summary und Situation-Complication-Resolution (SCR) Analyse mit Fokus auf {framework_focus}.",
+                    backstory="Erfahrener Strategy Consultant mit Spezialisierung auf prägnante Problemsynthesen und strukturierte Analysen.",
+                    llm=gemini_llm,
+                    verbose=False
+                )
+                
+                structurer = Agent(
+                    role="MECE Framework Architect",
+                    goal="Erstelle eine 100% überschneidungsfreie und vollständige Problemstruktur (MECE Issue Tree) in sauberem Markdown.",
+                    backstory="Spezialist für logische Problemzerlegung. Achtet strikt auf Vollständigkeit und Überschneidungsfreiheit.",
+                    llm=gemini_llm,
+                    verbose=False
+                )
 
-            hypothesis_builder = Agent(
-                role="Strategy & Hypothesis Lead",
-                goal="Entwickle 3 quantifizierbare Arbeitshypothesen inklusive einer strukturierten KPI-Validierungsmatrix.",
-                backstory="Experte für datengestützte Unternehmensanalysen, Performance Improvement und KPI-Konzepte.",
-                llm=gemini_llm,
-                verbose=False
-            )
+                hypothesis_builder = Agent(
+                    role="Strategy & Hypothesis Lead",
+                    goal="Entwickle 3 quantifizierbare Arbeitshypothesen inklusive einer strukturierten KPI-Validierungsmatrix.",
+                    backstory="Experte für datengestützte Unternehmensanalysen, Performance Improvement und KPI-Konzepte.",
+                    llm=gemini_llm,
+                    verbose=False
+                )
 
-            t1 = Task(
-                description=(
-                    f"Analysiere folgendes Case-Briefing unter Berücksichtigung von '{framework_focus}':\n\n"
-                    f"{case_input}\n\n"
-                    "Erstelle eine strukturierte Executive Summary im SCR-Format.\n\n"
-                    f"{FORMATTING_RULES}"
-                ),
-                expected_output=f"Strukturierte SCR-Analyse auf {language}.",
-                agent=analyzer
-            )
-            
-            t2 = Task(
-                description=(
-                    f"Basierend auf Task 1: Erstelle einen vollständigen MECE Issue Tree auf {language}.\n\n"
-                    f"{FORMATTING_RULES}"
-                ),
-                expected_output=f"Ein übersichtlicher MECE Issue Tree auf {language}.",
-                agent=structurer
-            )
-            
-            t3 = Task(
-                description=(
-                    f"Basierend auf Task 2: Formuliere genau 3 priorisierte Arbeitshypothesen auf {language} inklusive KPI-Matrix.\n\n"
-                    f"{FORMATTING_RULES}"
-                ),
-                expected_output=f"3 Hypothesen mit KPI-Validierungsmatrix als Markdown-Tabelle auf {language}.",
-                agent=hypothesis_builder
-            )
+                t1 = Task(
+                    description=f"Analysiere folgendes Case-Briefing unter Berücksichtigung von '{framework_focus}':\n\n{case_input}\n\nErstelle eine strukturierte Executive Summary im SCR-Format.\n\n{FORMATTING_RULES}",
+                    expected_output=f"Strukturierte SCR-Analyse auf {language}.",
+                    agent=analyzer
+                )
+                
+                t2 = Task(
+                    description=f"Basierend auf Task 1: Erstelle einen vollständigen MECE Issue Tree auf {language}.\n\n{FORMATTING_RULES}",
+                    expected_output=f"Ein übersichtlicher MECE Issue Tree auf {language}.",
+                    agent=structurer
+                )
+                
+                t3 = Task(
+                    description=f"Basierend auf Task 2: Formuliere genau 3 priorisierte Arbeitshypothesen auf {language} inklusive KPI-Matrix.\n\n{FORMATTING_RULES}",
+                    expected_output=f"3 Hypothesen mit KPI-Validierungsmatrix als Markdown-Tabelle auf {language}.",
+                    agent=hypothesis_builder
+                )
 
-            crew = Crew(
-                agents=[analyzer, structurer, hypothesis_builder],
-                tasks=[t1, t2, t3],
-                process=Process.sequential
-            )
+                crew = Crew(
+                    agents=[analyzer, structurer, hypothesis_builder],
+                    tasks=[t1, t2, t3],
+                    process=Process.sequential
+                )
 
-            # --- ERWEITERTES ERROR-HANDLING FÜR API-LIMITS ---
-            try:
-                result = crew.kickoff()
-                status.update(label=ui_status_done, state="complete", expanded=False)
-            except Exception as e:
-                status.update(label="❌ API-Limit erreicht", state="error", expanded=False)
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    st.error("⚠️ Das kostenlose Tageskontingent der API ist vorübergehend erschöpft. Bitte trage in der linken Seitenleiste einen eigenen kostenlosen Gemini API-Key ein oder versuche es in wenigen Minuten erneut.")
-                else:
-                    st.error(f"Fehler bei der Analyse: {e}")
-                st.stop()
-            # ------------------------------------------------
-
-        st.session_state["out_analysis"] = result.tasks_output[0].raw
-        st.session_state["out_mece"] = result.tasks_output[1].raw
-        st.session_state["out_hypothesis"] = result.tasks_output[2].raw
-        st.session_state["has_analysis"] = True
+                try:
+                    result = crew.kickoff()
+                    status.update(label=ui_status_done, state="complete", expanded=False)
+                    st.session_state["out_analysis"] = result.tasks_output[0].raw
+                    st.session_state["out_mece"] = result.tasks_output[1].raw
+                    st.session_state["out_hypothesis"] = result.tasks_output[2].raw
+                    st.session_state["has_analysis"] = True
+                except Exception as e:
+                    status.update(label="❌ API-Limit erreicht", state="error", expanded=False)
+                    if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                        st.error("⚠️ Das kostenlose Tageskontingent der API ist vorübergehend erschöpft. Bitte trage in der linken Seitenleiste einen eigenen kostenlosen Gemini API-Key ein oder versuche es in wenigen Minuten erneut.")
+                    else:
+                        st.error(f"Fehler bei der Analyse: {e}")
+                    st.stop()
 
 # 9. Ergebnisanzeige & Export
 if st.session_state.get("has_analysis", False):
