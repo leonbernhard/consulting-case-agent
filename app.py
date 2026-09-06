@@ -366,7 +366,7 @@ if st.button(ui_button):
             st.session_state["out_mece"] = PRECACHED_PROFITABILITY["mece"]
             st.session_state["out_hypothesis"] = PRECACHED_PROFITABILITY["hypothesis"]
             st.session_state["has_analysis"] = True
-            st.success("⚡ Demo-Analyse sofort geladen (Zero-Quota Mode)!")
+            st.info("⚡ **Demo-Vorschau aktiv:** Zur Vermeidung von API-Rate-Limits und zur Gewährleistung unmittelbarer Antwortzeiten wird für diesen Standard-Case ein vorvalidiertes Agenten-Ergebnis geladen. Bei manueller Anpassung des Briefings wird automatisch die Live-Orchestrierung gestartet.")
         else:
             with st.status(ui_status_start, expanded=True) as status:
                 analyzer = Agent(
