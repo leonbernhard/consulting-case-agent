@@ -1,0 +1,15 @@
+# Streamlit Secrets (Schützt deinen API-Key vor Veröffentlichung)
+.streamlit/secrets.toml
+
+# Python Cache & virtuelle Umgebungen
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# System- & IDE-Dateien
+.DS_Store
+.vscode/
+.idea/
