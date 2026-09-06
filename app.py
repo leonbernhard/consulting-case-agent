@@ -8,6 +8,96 @@ from docx.shared import Pt, RGBColor, Inches
 
 # Seiten-Konfiguration
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
+# EXECUTIVE C-LEVEL STYLING (CSS INJECTION)
+EXECUTIVE_CSS = """
+<style>
+    /* Typografie & Globale Schriftart */
+    html, body, [class*="css"] {
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;
+    }
+
+    /* Primary Buttons (Haupt-Aktionen) */
+    div.stButton > button {
+        background-color: #0F2C59 !important;
+        color: #FFFFFF !important;
+        border-radius: 6px !important;
+        border: 1px solid #0F2C59 !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1.25rem !important;
+        transition: all 0.2s ease-in-out !important;
+        box-shadow: 0 2px 4px rgba(15, 44, 89, 0.1) !important;
+    }
+    
+    div.stButton > button:hover {
+        background-color: #1E40AF !important;
+        border-color: #1E40AF !important;
+        box-shadow: 0 4px 12px rgba(15, 44, 89, 0.25) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* KPI Metric Cards Redesign */
+    [data-testid="stMetric"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-left: 4px solid #0F2C59 !important;
+        padding: 16px 20px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 8px rgba(15, 44, 89, 0.04) !important;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        color: #64748B !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+    
+    [data-testid="stMetricValue"] {
+        color: #0F2C59 !important;
+        font-weight: 700 !important;
+        font-size: 20px !important;
+    }
+
+    /* Tabs Styling (C-Level Navigation) */
+    button[data-baseweb="tab"] {
+        font-weight: 600 !important;
+        color: #64748B !important;
+        padding: 12px 20px !important;
+        border-radius: 4px 4px 0 0 !important;
+    }
+    
+    button[aria-selected="true"] {
+        color: #0F2C59 !important;
+        border-bottom-color: #0F2C59 !important;
+        border-bottom-width: 3px !important;
+        background-color: #F8FAFC !important;
+    }
+
+    /* Seitenleiste (Sidebar Refinement) */
+    [data-testid="stSidebar"] {
+        background-color: #F8FAFC !important;
+        border-right: 1px solid #E2E8F0 !important;
+    }
+
+    /* Strukturierte Container im Ergebnisbereich */
+    .stTabs [data-testid="stMarkdownContainer"] {
+        line-height: 1.6 !important;
+        color: #1E293B !important;
+    }
+
+    /* Formular-Elemente & Textareas */
+    textarea {
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 6px !important;
+    }
+    textarea:focus {
+        border-color: #0F2C59 !important;
+        box-shadow: 0 0 0 1px #0F2C59 !important;
+    }
+</style>
+"""
+st.markdown(EXECUTIVE_CSS, unsafe_allow_html=True)
 
 # 1. API Key prüfen & abfangen
 api_key = None
@@ -319,7 +409,7 @@ def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, s
 
 # 4. Seitenleisten-Initialisierung (Sprachauswahl zuerst)
 with st.sidebar:
-    st.header("⚙️ Settings / Einstellungen")
+    st.markdown("### ⚙️ Executive Settings")
     language = st.selectbox("Language / Sprache", ["Deutsch", "English"])
 
 # 5. Dynamische UI-Texte
@@ -401,26 +491,33 @@ else:
 # 6. Ergänzung der Seitenleiste & Hauptbereich-Header
 with st.sidebar:
     st.markdown("---")
+    st.markdown(f"**{ui_framework_label}**")
     framework_focus = st.selectbox(
-        ui_framework_label,
-        ["General Profitability", "Cost Reduction", "M&A Due Diligence", "Market Entry"]
+        "",
+        ["General Profitability", "Cost Reduction", "M&A Due Diligence", "Market Entry"],
+        label_visibility="collapsed"
     )
+    
     st.markdown("---")
-    st.caption(f"**{ui_key_hdr}**")
+    
+    # API-Key Sicherheits-Card
+    st.markdown(f"""
+        <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <span style="font-weight: 700; font-size: 13px; color: #0F2C59;">{ui_key_hdr}</span>
+            <p style="font-size: 11px; color: #64748B; margin-top: 4px; margin-bottom: 0px;">{ui_sec_note}</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
     user_key = st.text_input(
         ui_key_label, 
         type="password", 
-        help=ui_key_help
+        help=ui_key_help,
+        label_visibility="collapsed"
     )
-    st.caption(ui_sec_note)
-    
+
     if user_key.strip():
         os.environ["GEMINI_API_KEY"] = user_key.strip()
         gemini_llm = LLM(model="gemini-3.6-flash", api_key=user_key.strip())
-
-st.title(ui_title)
-st.caption(ui_subtitle)
-st.divider()
 
 # 7. Demo Cases
 DEMO_CASES = {
@@ -578,6 +675,19 @@ if st.session_state.get("has_analysis", False):
         st.metric(label=ui_m2_label, value=ui_m2_val, delta=ui_m2_delta)
     with col3:
         st.metric(label=ui_m3_label, value=ui_m3_val, delta=ui_m3_delta)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    tab1, tab2, tab3 = st.tabs([ui_tab1, ui_tab2, ui_tab3])
+
+    with tab1:
+        st.markdown(f'<div style="background: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">{out_analysis}</div>', unsafe_allow_html=True)
+
+    with tab2:
+        st.markdown(f'<div style="background: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">{out_mece}</div>', unsafe_allow_html=True)
+
+    with tab3:
+        st.markdown(f'<div style="background: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">{out_hypothesis}</div>', unsafe_allow_html=True)
 
     st.markdown("---")
 
