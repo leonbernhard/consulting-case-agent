@@ -34,81 +34,86 @@ gemini_llm = LLM(
 
 # 3. Hilfsfunktionen für Exporte
 def create_html_report(title, framework, language, analysis, mece, hypothesis):
-    """Erstellt ein professionelles, druckoptimiertes Executive HTML/PDF Dashboard."""
+    """Erstellt ein professionelles, druckoptimiertes Executive HTML/PDF Dashboard mit sauberen A4-Rändern."""
     import html
     import re
 
-    def parse_markdown_to_clean_html(md_text):
-        lines = md_text.split('\n')
+    def md_to_html(md_text):
+        lines = md_text.strip().split('\n')
         html_out = []
         in_list = False
-        in_table = False
-        table_rows = []
+        table_lines = []
 
-        def format_inline(text):
-            escaped = html.escape(text)
-            formatted = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', escaped)
-            formatted = re.sub(r'\*(.*?)\*', r'<em>\1</em>', formatted)
-            return formatted
+        def format_text(txt):
+            txt = html.escape(txt.strip())
+            txt = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', txt)
+            txt = re.sub(r'\*(.*?)\*', r'<em>\1</em>', txt)
+            return txt
+
+        def render_table(t_lines):
+            if not t_lines:
+                return ""
+            rows = []
+            for line in t_lines:
+                cleaned = line.strip().strip('|')
+                cells = [c.strip() for c in cleaned.split('|')]
+                if all(re.match(r'^:?-+:?$', c) for c in cells if c):
+                    continue
+                rows.append(cells)
+
+            if not rows:
+                return ""
+
+            out = ['<table class="executive-table">']
+            out.append('<thead><tr>')
+            for cell in rows[0]:
+                out.append(f'<th>{format_text(cell)}</th>')
+            out.append('</tr></thead><tbody>')
+
+            for row in rows[1:]:
+                out.append('<tr>')
+                for cell in row:
+                    out.append(f'<td>{format_text(cell)}</td>')
+                out.append('</tr>')
+            out.append('</tbody></table>')
+            return '\n'.join(out)
 
         for line in lines:
             line_str = line.strip()
 
-            # Tabellen-Erkennung (| Spalte 1 | Spalte 2 |)
-            if line_str.startswith('|') and line_str.endswith('|'):
+            if '|' in line_str and line_str.count('|') >= 2:
                 if in_list:
                     html_out.append('</ul>')
                     in_list = False
-                
-                cells = [c.strip() for c in line_str.split('|')[1:-1]]
-                # Trennzeilen wie | :--- | :--- | überspringen
-                if all(re.match(r'^:?-+:?$', c) for c in cells):
-                    continue
-                
-                if not in_table:
-                    in_table = True
-                    table_rows = []
-                
-                table_rows.append(cells)
+                table_lines.append(line_str)
                 continue
             else:
-                if in_table:
-                    html_out.append('<table class="executive-table">')
-                    for i, row in enumerate(table_rows):
-                        tag = 'th' if i == 0 else 'td'
-                        html_out.append('<tr>' + ''.join(f'<{tag}>{format_inline(c)}</{tag}>' for c in row) + '</tr>')
-                    html_out.append('</table>')
-                    in_table = False
-                    table_rows = []
+                if table_lines:
+                    html_out.append(render_table(table_lines))
+                    table_lines = []
 
-            # Überschriften
             if line_str.startswith('### '):
-                html_out.append(f'<h3>{format_inline(line_str[4:])}</h3>')
+                html_out.append(f'<h3>{format_text(line_str[4:])}</h3>')
             elif line_str.startswith('## '):
-                html_out.append(f'<h2>{format_inline(line_str[3:])}</h2>')
+                html_out.append(f'<h2>{format_text(line_str[3:])}</h2>')
             elif line_str.startswith('# '):
-                html_out.append(f'<h2>{format_inline(line_str[2:])}</h2>')
-            # Listenpunkte
+                html_out.append(f'<h2>{format_text(line_str[2:])}</h2>')
             elif line_str.startswith('- ') or line_str.startswith('* '):
                 if not in_list:
                     html_out.append('<ul class="executive-list">')
                     in_list = True
-                html_out.append(f'<li>{format_inline(line_str[2:])}</li>')
+                html_out.append(f'<li>{format_text(line_str[2:])}</li>')
             else:
                 if in_list:
                     html_out.append('</ul>')
                     in_list = False
                 if line_str:
-                    html_out.append(f'<p>{format_inline(line_str)}</p>')
+                    html_out.append(f'<p>{format_text(line_str)}</p>')
 
+        if table_lines:
+            html_out.append(render_table(table_lines))
         if in_list:
             html_out.append('</ul>')
-        if in_table:
-            html_out.append('<table class="executive-table">')
-            for i, row in enumerate(table_rows):
-                tag = 'th' if i == 0 else 'td'
-                html_out.append('<tr>' + ''.join(f'<{tag}>{format_inline(c)}</{tag}>' for c in row) + '</tr>')
-            html_out.append('</table>')
 
         return '\n'.join(html_out)
 
@@ -118,9 +123,10 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
+        /* A4-Druckeinrichtung mit festen Rändern */
         @page {{
             size: A4;
-            margin: 18mm 15mm 18mm 15mm;
+            margin: 20mm 18mm 20mm 18mm;
         }}
         body {{
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
@@ -131,48 +137,49 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
             padding: 30px;
         }}
         .container {{
-            max-width: 900px;
+            max-width: 850px;
             margin: 0 auto;
             background: #FFFFFF;
-            padding: 40px 50px;
+            padding: 40px 45px;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            box-sizing: border-box;
         }}
         .header {{
             border-bottom: 2px solid #0F2C59;
-            padding-bottom: 15px;
+            padding-bottom: 12px;
             margin-bottom: 25px;
         }}
         .badge {{
             display: inline-block;
             background: #0F2C59;
             color: #FFFFFF;
-            padding: 3px 10px;
+            padding: 3px 8px;
             border-radius: 4px;
             font-size: 11px;
-            font-weight: 700;
+            font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }}
-        h1 {{ color: #0F2C59; font-size: 24px; margin: 0 0 4px 0; font-weight: 700; }}
-        h2 {{ color: #0F2C59; font-size: 17px; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-top: 28px; margin-bottom: 12px; font-weight: 600; page-break-after: avoid; }}
-        h3 {{ color: #334155; font-size: 14px; margin-top: 16px; margin-bottom: 6px; font-weight: 600; page-break-after: avoid; }}
-        p, li {{ font-size: 13px; color: #334155; margin-bottom: 6px; }}
-        .executive-list {{ padding-left: 20px; margin: 8px 0; }}
-        .executive-list li {{ margin-bottom: 4px; }}
+        h1 {{ color: #0F2C59; font-size: 22px; margin: 4px 0; font-weight: 700; }}
+        h2 {{ color: #0F2C59; font-size: 16px; border-bottom: 1px solid #E2E8F0; padding-bottom: 5px; margin-top: 25px; margin-bottom: 12px; font-weight: 600; page-break-after: avoid; }}
+        h3 {{ color: #334155; font-size: 13px; margin-top: 16px; margin-bottom: 6px; font-weight: 600; page-break-after: avoid; }}
+        p, li {{ font-size: 12px; color: #334155; margin-bottom: 6px; }}
+        ul.executive-list {{ padding-left: 20px; margin: 8px 0; }}
+        ul.executive-list li {{ margin-bottom: 4px; }}
         
         .executive-table {{
             width: 100%;
             border-collapse: collapse;
             margin: 16px 0;
-            font-size: 12px;
+            font-size: 11px;
             page-break-inside: avoid;
         }}
         .executive-table th {{
             background-color: #0F2C59;
             color: #FFFFFF;
-            font-weight: 600;
+            font-weight: bold;
             text-align: left;
             padding: 8px 10px;
             border: 1px solid #0F2C59;
@@ -186,18 +193,28 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
         
         .section-block {{ page-break-inside: avoid; }}
         .footer {{
-            margin-top: 40px;
-            padding-top: 15px;
+            margin-top: 35px;
+            padding-top: 12px;
             border-top: 1px solid #E2E8F0;
-            font-size: 11px;
+            font-size: 10px;
             color: #94A3B8;
             text-align: center;
         }}
         
+        /* Druck-Spezifische Anpassung für perfektes PDF-A4 */
         @media print {{
-            body {{ background: #FFFFFF; padding: 0; }}
-            .container {{ box-shadow: none; padding: 0; width: 100%; max-width: none; }}
-            .footer {{ position: fixed; bottom: 0; width: 100%; }}
+            body {{
+                background: #FFFFFF !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }}
+            .container {{
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }}
         }}
     </style>
 </head>
@@ -206,22 +223,22 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
         <div class="header">
             <span class="badge">{framework}</span>
             <h1>{title}</h1>
-            <p style="color: #64748B; margin: 0; font-size: 12px;">Automated AI Case Analysis Report</p>
+            <p style="color: #64748B; margin: 0; font-size: 11px;">Automated AI Case Analysis Report</p>
         </div>
         
         <div class="section-block">
             <h2>1. Executive Summary & SCR</h2>
-            {parse_markdown_to_clean_html(analysis)}
+            {md_to_html(analysis)}
         </div>
         
         <div class="section-block">
             <h2>2. MECE Issue Tree</h2>
-            {parse_markdown_to_clean_html(mece)}
+            {md_to_html(mece)}
         </div>
         
         <div class="section-block">
             <h2>3. Hypothesen & KPI Matrix</h2>
-            {parse_markdown_to_clean_html(hypothesis)}
+            {md_to_html(hypothesis)}
         </div>
         
         <div class="footer">
