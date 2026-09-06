@@ -34,7 +34,7 @@ gemini_llm = LLM(
 
 # 3. Hilfsfunktionen für Exporte
 def create_html_report(title, framework, language, analysis, mece, hypothesis):
-    """Erstellt ein professionelles, druckoptimiertes Executive HTML/PDF Dashboard mit garantierten A4-Seitenrändern."""
+    """Erstellt ein professionelles, druckoptimiertes Executive HTML/PDF Dashboard mit garantierter Einrückung."""
     import html
     import re
 
@@ -92,7 +92,24 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
                     html_out.append(render_table(table_lines))
                     table_lines = []
 
-            if line_str.startswith('### '):
+            if not line_str:
+                continue
+
+            # Unterpunkte wie 1.1, 1.2 (Einrückung ohne Bullet)
+            if re.match(r'^\d+\.\d+', line_str) or re.match(r'^[*\-]\s*\d+\.\d+', line_str):
+                if in_list:
+                    html_out.append('</ul>')
+                    in_list = False
+                clean_txt = re.sub(r'^[*\-]\s*', '', line_str)
+                html_out.append(f'<p style="margin-left: 24px; margin-top: 3px; margin-bottom: 5px;">{format_text(clean_txt)}</p>')
+            # Hauptkategorien wie 1., 2.
+            elif re.match(r'^\d+\.\s', line_str) or re.match(r'^[*\-]\s*\d+\.\s', line_str):
+                if in_list:
+                    html_out.append('</ul>')
+                    in_list = False
+                clean_txt = re.sub(r'^[*\-]\s*', '', line_str)
+                html_out.append(f'<p style="margin-top: 14px; margin-bottom: 4px; font-weight: 600; color: #0F2C59;">{format_text(clean_txt)}</p>')
+            elif line_str.startswith('### '):
                 html_out.append(f'<h3>{format_text(line_str[4:])}</h3>')
             elif line_str.startswith('## '):
                 html_out.append(f'<h2>{format_text(line_str[3:])}</h2>')
@@ -107,8 +124,7 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
                 if in_list:
                     html_out.append('</ul>')
                     in_list = False
-                if line_str:
-                    html_out.append(f'<p>{format_text(line_str)}</p>')
+                html_out.append(f'<p>{format_text(line_str)}</p>')
 
         if table_lines:
             html_out.append(render_table(table_lines))
@@ -123,44 +139,11 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
-        @page {{
-            size: A4;
-            margin: 15mm;
-        }}
-        body {{
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.5;
-            color: #1E293B;
-            background-color: #F8FAFC;
-            margin: 0;
-            padding: 25px;
-        }}
-        .container {{
-            max-width: 850px;
-            margin: 0 auto;
-            background: #FFFFFF;
-            padding: 35px 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            box-sizing: border-box;
-        }}
-        .header {{
-            border-bottom: 2px solid #0F2C59;
-            padding-bottom: 12px;
-            margin-bottom: 25px;
-        }}
-        .badge {{
-            display: inline-block;
-            background: #0F2C59;
-            color: #FFFFFF;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-        }}
+        @page {{ size: A4; margin: 15mm; }}
+        body {{ font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; line-height: 1.5; color: #1E293B; background-color: #F8FAFC; margin: 0; padding: 25px; }}
+        .container {{ max-width: 850px; margin: 0 auto; background: #FFFFFF; padding: 35px 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }}
+        .header {{ border-bottom: 2px solid #0F2C59; padding-bottom: 12px; margin-bottom: 25px; }}
+        .badge {{ display: inline-block; background: #0F2C59; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; }}
         h1 {{ color: #0F2C59; font-size: 22px; margin: 4px 0; font-weight: 700; }}
         h2 {{ color: #0F2C59; font-size: 16px; border-bottom: 1px solid #E2E8F0; padding-bottom: 5px; margin-top: 25px; margin-bottom: 12px; font-weight: 600; page-break-after: avoid; }}
         h3 {{ color: #334155; font-size: 13px; margin-top: 16px; margin-bottom: 6px; font-weight: 600; page-break-after: avoid; }}
@@ -168,52 +151,17 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
         ul.executive-list {{ padding-left: 20px; margin: 8px 0; }}
         ul.executive-list li {{ margin-bottom: 4px; }}
         
-        .executive-table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin: 16px 0;
-            font-size: 11px;
-            page-break-inside: avoid;
-        }}
-        .executive-table th {{
-            background-color: #0F2C59;
-            color: #FFFFFF;
-            font-weight: bold;
-            text-align: left;
-            padding: 8px 10px;
-            border: 1px solid #0F2C59;
-        }}
-        .executive-table td {{
-            border: 1px solid #CBD5E1;
-            padding: 8px 10px;
-            vertical-align: top;
-        }}
+        .executive-table {{ width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 11px; page-break-inside: avoid; }}
+        .executive-table th {{ background-color: #0F2C59; color: #FFFFFF; font-weight: bold; text-align: left; padding: 8px 10px; border: 1px solid #0F2C59; }}
+        .executive-table td {{ border: 1px solid #CBD5E1; padding: 8px 10px; vertical-align: top; }}
         .executive-table tr:nth-child(even) {{ background-color: #F8FAFC; }}
         
         .section-block {{ page-break-inside: avoid; }}
-        .footer {{
-            margin-top: 35px;
-            padding-top: 12px;
-            border-top: 1px solid #E2E8F0;
-            font-size: 10px;
-            color: #94A3B8;
-            text-align: center;
-        }}
+        .footer {{ margin-top: 35px; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; text-align: center; }}
         
-        /* Druck-Anpassung: Erzwingt äußere Papier-Seitenränder im PDF */
         @media print {{
-            html, body {{
-                background: #FFFFFF !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }}
-            .container {{
-                box-shadow: none !important;
-                padding: 0 !important;
-                margin: 12mm auto !important; /* Papier-Seitenränder oben/unten/links/rechts */
-                width: 90% !important;
-                max-width: 90% !important;
-            }}
+            html, body {{ background: #FFFFFF !important; margin: 0 !important; padding: 0 !important; }}
+            .container {{ box-shadow: none !important; padding: 0 !important; margin: 12mm auto !important; width: 90% !important; max-width: 90% !important; }}
         }}
     </style>
 </head>
@@ -249,10 +197,9 @@ def create_html_report(title, framework, language, analysis, mece, hypothesis):
     return html_content
 
 def create_docx_report(title, framework, analysis, mece, hypothesis):
-    """Erstellt ein professionelles Microsoft Word Dokument (.docx) mit echten Überschriften, Listen und Tabellen."""
+    """Erstellt ein professionelles Microsoft Word Dokument (.docx) mit echten Einrückungen ohne doppelte Bullets."""
     doc = Document()
     
-    # Dokumenten-Titel & Subtitle
     heading = doc.add_heading(title, level=0)
     heading.style.font.color.rgb = RGBColor(15, 44, 89)
     
@@ -262,7 +209,6 @@ def create_docx_report(title, framework, analysis, mece, hypothesis):
     p_sub.paragraph_format.space_after = Pt(18)
 
     def add_formatted_text(paragraph, text):
-        """Löst Fettgedrucktes (**text**) in native Word-Runs auf."""
         parts = re.split(r'(\*\*.*?\*\*)', text)
         for part in parts:
             if part.startswith('**') and part.endswith('**'):
@@ -273,7 +219,6 @@ def create_docx_report(title, framework, analysis, mece, hypothesis):
                     paragraph.add_run(part)
 
     def render_docx_table(t_lines):
-        """Baut aus Markdown-Pipes eine echte Microsoft Word Tabelle mit Gitterlinien."""
         rows_data = []
         for line in t_lines:
             cleaned = line.strip().strip('|')
@@ -300,6 +245,74 @@ def create_docx_report(title, framework, analysis, mece, hypothesis):
                     if r_idx == 0:
                         for run in p.runs:
                             run.bold = True
+
+    def add_md_section(section_title, md_text):
+        h = doc.add_heading(section_title, level=1)
+        h.style.font.color.rgb = RGBColor(15, 44, 89)
+        h.paragraph_format.space_before = Pt(14)
+        h.paragraph_format.space_after = Pt(6)
+
+        lines = md_text.strip().split('\n')
+        table_lines = []
+
+        for line in lines:
+            line_str = line.strip()
+
+            if '|' in line_str and line_str.count('|') >= 2:
+                table_lines.append(line_str)
+                continue
+            else:
+                if table_lines:
+                    render_docx_table(table_lines)
+                    table_lines = []
+
+            if not line_str:
+                continue
+
+            # Unterpunkte wie 1.1, 1.2 (Einrückung ohne Bullet)
+            if re.match(r'^\d+\.\d+', line_str) or re.match(r'^[*\-]\s*\d+\.\d+', line_str):
+                clean_txt = re.sub(r'^[*\-]\s*', '', line_str)
+                p = doc.add_paragraph()
+                p.paragraph_format.left_indent = Inches(0.3)
+                p.paragraph_format.space_after = Pt(3)
+                add_formatted_text(p, clean_txt)
+            # Hauptkategorien wie 1., 2.
+            elif re.match(r'^\d+\.\s', line_str) or re.match(r'^[*\-]\s*\d+\.\s', line_str):
+                clean_txt = re.sub(r'^[*\-]\s*', '', line_str)
+                p = doc.add_paragraph()
+                p.paragraph_format.space_before = Pt(8)
+                p.paragraph_format.space_after = Pt(3)
+                add_formatted_text(p, clean_txt)
+            elif line_str.startswith('### '):
+                p = doc.add_heading(level=2)
+                add_formatted_text(p, line_str[4:])
+                p.paragraph_format.space_before = Pt(8)
+                p.paragraph_format.space_after = Pt(2)
+            elif line_str.startswith('## '):
+                p = doc.add_heading(level=2)
+                add_formatted_text(p, line_str[3:])
+                p.paragraph_format.space_before = Pt(10)
+                p.paragraph_format.space_after = Pt(4)
+            elif line_str.startswith('- ') or line_str.startswith('* '):
+                p = doc.add_paragraph(style='List Bullet')
+                add_formatted_text(p, line_str[2:])
+                p.paragraph_format.space_after = Pt(2)
+            else:
+                p = doc.add_paragraph()
+                add_formatted_text(p, line_str)
+                p.paragraph_format.space_after = Pt(4)
+
+        if table_lines:
+            render_docx_table(table_lines)
+
+    add_md_section("1. Executive Summary & SCR", analysis)
+    add_md_section("2. MECE Issue Tree", mece)
+    add_md_section("3. Hypothesen & KPI Matrix", hypothesis)
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
 
     def add_md_section(section_title, md_text):
         """Wandelt Markdown-Abschnitte in strukturierte Word-Elemente um."""
@@ -490,19 +503,19 @@ Welche spezifischen Kosten- und Mix-Treiber haben die Marge erodiert, und mit we
 
 ### 4. Resolution & Strategic Approach (R)
 Zur Erreichung der Ziel-Marge ist eine EBIT-Steigerung um mindestens **2,16 Mio. €** erforderlich. Dies erfordert eine Ursachenanalyse entlang des Profitabilitäts-Baums sowie die Implementierung eines zweiphasigen Optimierungsprogramms.""",
-    "mece": """- **1. Erlösqualität & Preisdurchsetzung (Umsatz- & Mix-Hebel)**
-  * **1.1 Preisanpassung & Indexierung:** Unzureichende Weitergabe gestiegener Inputkosten an Endkunden.
-  * **1.2 Portfolio-Mix-Verschiebung:** Shift von hochmargigen Spezialprodukten zu margenschwachen Standardprodukten.
-  * **1.3 Konditionen-Management:** Hohe Rabatte und ungünstige Frachtkonditionen bei A-Kunden.
+    "mece": """**1. Erlösqualität & Preisdurchsetzung (Umsatz- & Mix-Hebel)**
+1.1 **Preisanpassung & Indexierung:** Unzureichende Weitergabe gestiegener Inputkosten an Endkunden.
+1.2 **Portfolio-Mix-Verschiebung:** Shift von hochmargigen Spezialprodukten zu margenschwachen Standardprodukten.
+1.3 **Konditionen-Management:** Hohe Rabatte und ungünstige Frachtkonditionen bei A-Kunden.
 
-- **2. Variable Herstellungskosten (COGS / Direct Costs)**
-  * **2.1 Einkauf & Material:** Preisanstiege bei Rohstoffen ohne adäquates Sourcing-Gegenhalten.
-  * **2.2 Fertigungseffizienz:** Sinkende OEE-Raten, erhöhte Ausschussquoten und Überstunden.
-  * **2.3 Logistik & Energie:** Gestiegene Fracht- und Energiekosten pro Produktionseinheit.
+**2. Variable Herstellungskosten (COGS / Direct Costs)**
+2.1 **Einkauf & Material:** Preisanstiege bei Rohstoffen ohne adäquates Sourcing-Gegenhalten.
+2.2 **Fertigungseffizienz:** Sinkende OEE-Raten, erhöhte Ausschussquoten und Überstunden.
+2.3 **Logistik & Energie:** Gestiegene Fracht- und Energiekosten pro Produktionseinheit.
 
-- **3. Operative Fixkosten & Overhead (OPEX / Indirect Costs)**
-  * **3.1 SG&A-Kosten:** Ungesteuerter Anstieg der Verwaltungs- und Vertriebskosten (Fixed Cost Creep).
-  * **3.2 Instandhaltung & F&E:** Erhöhte Wartungsaufwände veralteter Anlagen und uneffiziente Projekte.""",
+**3. Operative Fixkosten & Overhead (OPEX / Indirect Costs)**
+3.1 **SG&A-Kosten:** Ungesteuerter Anstieg der Verwaltungs- und Vertriebskosten (Fixed Cost Creep).
+3.2 **Instandhaltung & F&E:** Erhöhte Wartungsaufwände veralteter Anlagen und uneffiziente Projekte.""",
     "hypothesis": """| Bereich | Primäre Hypothese | Key Metric / Benchmark | Erwarteter EBIT-Hebel |
 | :--- | :--- | :--- | :--- |
 | **Pricing & Mix** | Selektive Preiserhöhungen (3,5 %) und Indexierung von Rohstoffklauseln stabilisieren den Deckungsbeitrag. | **Price Realization Rate > 85 %** | **+0,90 Mio. €** |
