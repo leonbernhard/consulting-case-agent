@@ -407,7 +407,7 @@ def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, s
     buffer.seek(0)
     return buffer
 
-# 4. Seitenleisten-Initialisierung (Sprachauswahl zuerst)
+# 4. Seitenleisten-Initialisierung (Sprachauswahl)
 with st.sidebar:
     st.markdown("### ⚙️ Executive Settings")
     language = st.selectbox("Language / Sprache", ["Deutsch", "English"])
@@ -440,10 +440,9 @@ if language == "English":
     ui_format_label = "Select Export Format:"
     ui_key_hdr = "🔑 API Key Configuration"
     ui_key_label = "Custom Gemini API Key (Optional)"
-    ui_key_help = "If the global demo quota is exhausted, a personal free API key from Google AI Studio can be entered here. Processing is secure and restricted exclusively to the active session."
-    ui_sec_note = "🔒 *Input is isolated and processed strictly in-memory per session. No persistent storage.*"
-    
-    # Berichtsspezifische Texte (English)
+    ui_key_help = "If the global demo quota is exhausted, a personal free API key from Google AI Studio can be entered here."
+    ui_sec_note = "🔒 *Input is isolated and processed strictly in-memory per session.*"
+
     rep_sub = "Automated AI Case Analysis Report"
     rep_lbl_fw = "Framework Focus"
     rep_sec1 = "1. Executive Summary & SCR"
@@ -477,10 +476,9 @@ else:
     ui_format_label = "Export-Format wählen:"
     ui_key_hdr = "🔑 API-Key Konfiguration"
     ui_key_label = "Eigener Gemini API-Key (Optional)"
-    ui_key_help = "Falls das globale Test-Kontingent erschöpft ist, kann hier ein eigener kostenloser Key aus dem Google AI Studio eingetragen werden. Die Verarbeitung erfolgt sicher und ausschließlich im Arbeitsspeicher dieser Sitzung."
-    ui_sec_note = "🔒 *Die Eingabe erfolgt isoliert und wird ausschließlich im flüchtigen Arbeitsspeicher verarbeitet. Keine Speicherung.*"
-    
-    # Berichtsspezifische Texte (Deutsch)
+    ui_key_help = "Falls das globale Test-Kontingent erschöpft ist, kann hier ein eigener kostenloser Key eingetragen werden."
+    ui_sec_note = "🔒 *Verarbeitung erfolgt ausschließlich im flüchtigen Arbeitsspeicher.*"
+
     rep_sub = "Automatisierter KI-Fallanalysebericht"
     rep_lbl_fw = "Fokus-Framework"
     rep_sec1 = "1. Executive Summary & SCR"
@@ -488,7 +486,7 @@ else:
     rep_sec3 = "3. Hypothesen & KPI-Matrix"
     rep_footer = "Erstellt durch KI Consulting & Case Structuring Agent | Vertrauliches Analyse-Tool"
 
-# 6. Ergänzung der Seitenleiste & Hauptbereich-Header
+# 6. Ergänzung der Seitenleiste
 with st.sidebar:
     st.markdown("---")
     st.markdown(f"**{ui_framework_label}**")
@@ -500,7 +498,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # API-Key Sicherheits-Card
     st.markdown(f"""
         <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
             <span style="font-weight: 700; font-size: 13px; color: #0F2C59;">{ui_key_hdr}</span>
@@ -519,6 +516,14 @@ with st.sidebar:
         os.environ["GEMINI_API_KEY"] = user_key.strip()
         gemini_llm = LLM(model="gemini-3.6-flash", api_key=user_key.strip())
 
+# HAUPTBEREICH: C-Level Header Banner (Exakt über den Demo-Cases)
+st.markdown(f"""
+    <div style="background-color: #FFFFFF; padding: 20px 24px; border-radius: 8px; border: 1px solid #E2E8F0; border-left: 6px solid #0F2C59; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+        <h1 style="color: #0F2C59; font-size: 26px; font-weight: 700; margin: 0 0 6px 0;">{ui_title}</h1>
+        <p style="color: #64748B; font-size: 14px; margin: 0;">{ui_subtitle}</p>
+    </div>
+""", unsafe_allow_html=True)
+
 # 7. Demo Cases
 DEMO_CASES = {
     "General Profitability": "Mandant: Mittelständisches Industrieunternehmen (Umsatz: 45 Mio. €).\nProblemstellung: Die EBIT-Marge ist innerhalb der letzten 18 Monate von 11,5 % auf 3,2 % gesunken, obwohl der Umsatz stabil geblieben ist.\nZiel: Identifikation der Hauptursachen für den Margenverfall und Entwicklung konkreter Gegenmaßnahmen zur Erreichung einer Ziel-Marge von > 8,0 %.",
@@ -526,30 +531,6 @@ DEMO_CASES = {
     "M&A Due Diligence": "Mandant: Finanzinvestor / Private Equity.\nProblemstellung: Bewertung eines potenziellen Akquisitionsziels im Bereich B2B-Software vor Beginn der detaillierten Commercial Due Diligence.\nZiel: Validierung des nachhaltigen EBITDA-Aussagewerts, Identifikation wesentlicher Geschäftsrisiken und Prüfung der Run-Rate im Hinblick auf das Synergiepotenzial.",
     "Market Entry": "Mandant: E-Commerce-Händler für Premium-Konsumgüter.\nProblemstellung: Geplante Expansion in zwei neue europäische Märkte bei einem Investitionsbudget von 2,0 Mio. €.\nZiel: Evaluierung von Markteintrittsbarrieren, Kundenakquisitionskosten (CAC) und der erwarteten Amortisationsdauer (Payback Period)."
 }
-
-if "case_text" not in st.session_state:
-    st.session_state["case_text"] = ""
-
-col_demo, col_empty = st.columns([1, 3])
-with col_demo:
-    if st.button(ui_demo_btn):
-        st.session_state["case_text"] = DEMO_CASES.get(framework_focus, DEMO_CASES["General Profitability"])
-
-case_input = st.text_area(
-    ui_input_label,
-    value=st.session_state["case_text"],
-    height=180,
-    placeholder=ui_input_placeholder
-)
-
-FORMATTING_RULES = f"""
-STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
-1. KEINE ASCII-Boxen oder Rahmenelemente (+---+, |---|, etc.) verwenden.
-2. Für MECE-Strukturen und Baumdarstellungen AUSSCHLIESSLICH Standard-Markdown-Listen mit Einrückungen verwenden.
-3. KEINE H1-Überschriften (`#`) generieren. Nutze ausschließlich Unterüberschriften ab Ebene 2 (`##`).
-4. Für Tabellen ausschließlich sauberes Markdown-Tabellenformat nutzen (`| Spalte 1 | Spalte 2 |`).
-5. Gesamtsprache der Ausgabe: Strikt auf {language}.
-"""
 
 # 8. Agenten-Analyse (Mit Zero-Quota Caching für Demo-Cases)
 PRECACHED_PROFITABILITY = {
