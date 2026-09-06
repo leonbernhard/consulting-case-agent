@@ -5,11 +5,20 @@ from crewai import Agent, Crew, Process, Task, LLM
 # Seiten-Konfiguration
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
 
-# 1. API Key prüfen & setzen
-api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
+# 1. API Key prüfen & abfangen
+api_key = None
+
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        api_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    pass
 
 if not api_key:
-    st.error("⚠️ GEMINI_API_KEY wurde nicht gefunden. Bitte trage den API-Key in den Streamlit Secrets ein.")
+    api_key = os.environ.get("GEMINI_API_KEY")
+
+if not api_key:
+    st.error("⚠️ GEMINI_API_KEY wurde nicht gefunden. Bitte trage deinen Key in `.streamlit/secrets.toml` oder in den Streamlit Cloud Secrets ein.")
     st.stop()
 
 os.environ["GEMINI_API_KEY"] = api_key
