@@ -2,6 +2,7 @@ import os
 import io
 import re
 import html
+import textwrap
 import streamlit as st
 from crewai import Agent, Crew, Process, Task, LLM
 from docx import Document
@@ -179,45 +180,52 @@ gemini_llm = LLM(
 
 # 3. Hilfsfunktionen für Graphviz & Exporte
 def generate_mece_dot_string(mece_text):
-    """Erzeugt einen sauberen DOT-String für st.graphviz_chart ohne externe System-Dependencies."""
+    """Erzeugt einen sauberen DOT-String für st.graphviz_chart mit dynamischem Zeilenumbruch (ohne Abschneiden)."""
     lines = [line.strip() for line in mece_text.split('\n') if line.strip()]
     dot_lines = [
         'digraph MECETree {',
         '    graph [rankdir=LR, bgcolor="transparent", nodesep=0.35, ranksep=0.55];',
-        '    node [shape=box, style="filled,rounded", fontname="Segoe UI, sans-serif", fontsize=10, margin="0.15,0.1"];',
+        '    node [shape=box, style="filled,rounded", fontname="Segoe UI, sans-serif", fontsize=10, margin="0.2,0.12"];',
         '    edge [color="#94A3B8", penwidth=1.2, arrowsize=0.8];',
         '    root [label="Case Problem Breakdown", fillcolor="#0F2C59", fontcolor="#FFFFFF", color="#0F2C59", fontsize=11];'
     ]
-    
+
     current_l1 = None
     node_count = 0
-    
+
     for line in lines:
         clean_line = re.sub(r'[*#]', '', line).strip()
         m_l2 = re.match(r'^(\d+\.\d+)\s*(.*)', clean_line)
         m_l1 = re.match(r'^(\d+)\.\s*(.*)', clean_line)
-        
+
         if m_l1 and not m_l2:
             num, txt = m_l1.groups()
             current_l1 = f"l1_{num.replace('.', '_')}"
             safe_txt = txt.replace('"', '\\"').strip()
-            if len(safe_txt) > 38:
-                safe_txt = safe_txt[:35] + "..."
-            dot_lines.append(f'    {current_l1} [label="{num}. {safe_txt}", fillcolor="#EFF6FF", color="#BFDBFE", fontcolor="#1E40AF"];')
+            
+            # Dynamischer Zeilenumbruch nach ca. 28 Zeichen
+            wrapped_txt = "\\n".join(textwrap.wrap(safe_txt, width=28))
+            full_label = f"{num}. {wrapped_txt}"
+            
+            dot_lines.append(f'    {current_l1} [label="{full_label}", fillcolor="#EFF6FF", color="#BFDBFE", fontcolor="#1E40AF"];')
             dot_lines.append(f'    root -> {current_l1};')
+
         elif m_l2:
             num, txt = m_l2.groups()
             node_count += 1
             l2_id = f"l2_{node_count}"
             safe_txt = txt.replace('"', '\\"').strip()
-            if len(safe_txt) > 38:
-                safe_txt = safe_txt[:35] + "..."
-            dot_lines.append(f'    {l2_id} [label="{num} {safe_txt}", fillcolor="#FFFFFF", color="#CBD5E1", fontcolor="#334155"];')
+            
+            # Dynamischer Zeilenumbruch nach ca. 32 Zeichen
+            wrapped_txt = "\\n".join(textwrap.wrap(safe_txt, width=32))
+            full_label = f"{num} {wrapped_txt}"
+            
+            dot_lines.append(f'    {l2_id} [label="{full_label}", fillcolor="#FFFFFF", color="#CBD5E1", fontcolor="#334155"];')
             if current_l1:
                 dot_lines.append(f'    {current_l1} -> {l2_id};')
             else:
                 dot_lines.append(f'    root -> {l2_id};')
-                
+
     dot_lines.append('}')
     return '\n'.join(dot_lines)
 
