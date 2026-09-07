@@ -5,6 +5,9 @@ import streamlit as st
 from crewai import Agent, Crew, Process, Task, LLM
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 # Seiten-Konfiguration
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
@@ -314,6 +317,113 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
 </body>
 </html>"""
     return html_content
+
+def create_excel_report(title, framework, analysis, mece, hypothesis):
+    """Erstellt ein professionell formatiertes Excel-Workbook (.xlsx) für Finance & M&A Teams."""
+    wb = openpyxl.Workbook()
+    
+    # C-Level Design-Styling (Farbschema #0F2C59)
+    header_fill = PatternFill(start_color="0F2C59", end_color="0F2C59", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    title_font = Font(name="Calibri", size=14, bold=True, color="0F2C59")
+    bold_font = Font(name="Calibri", size=11, bold=True)
+    regular_font = Font(name="Calibri", size=11)
+    
+    thin_border = Border(
+        left=Side(style='thin', color='CBD5E1'),
+        right=Side(style='thin', color='CBD5E1'),
+        top=Side(style='thin', color='CBD5E1'),
+        bottom=Side(style='thin', color='CBD5E1')
+    )
+
+    # ----------------------------------------------------
+    # TAB 1: Executive Summary & SCR
+    # ----------------------------------------------------
+    ws1 = wb.active
+    ws1.title = "Executive Summary"
+    ws1.views.sheetView[0].showGridLines = True
+
+    ws1['A1'] = title
+    ws1['A1'].font = title_font
+    ws1['A2'] = f"Framework Focus: {framework}"
+    ws1['A2'].font = Font(name="Calibri", size=11, italic=True, color="64748B")
+
+    row_idx = 4
+    for line in analysis.split('\n'):
+        line_str = line.strip()
+        if not line_str:
+            continue
+        cell = ws1.cell(row=row_idx, column=1, value=re.sub(r'[*#]', '', line_str))
+        cell.font = bold_font if line_str.startswith('#') or line_str.startswith('**') else regular_font
+        row_idx += 1
+    
+    ws1.column_dimensions['A'].width = 110
+
+    # ----------------------------------------------------
+    # TAB 2: MECE Issue Tree
+    # ----------------------------------------------------
+    ws2 = wb.create_sheet(title="MECE Structure")
+    ws2.views.sheetView[0].showGridLines = True
+
+    ws2['A1'] = "MECE Problem Breakdown"
+    ws2['A1'].font = title_font
+
+    row_idx = 3
+    for line in mece.split('\n'):
+        line_str = line.strip()
+        if not line_str:
+            continue
+        cell = ws2.cell(row=row_idx, column=1, value=re.sub(r'[*#]', '', line_str))
+        cell.font = bold_font if line_str.startswith('**') or re.match(r'^\d+\.', line_str) else regular_font
+        row_idx += 1
+
+    ws2.column_dimensions['A'].width = 110
+
+    # ----------------------------------------------------
+    # TAB 3: KPI & Hypothesis Matrix (Formatierte Tabelle)
+    # ----------------------------------------------------
+    ws3 = wb.create_sheet(title="KPI & Hypotheses")
+    ws3.views.sheetView[0].showGridLines = True
+
+    ws3['A1'] = "Hypotheses & Quantified KPI Matrix"
+    ws3['A1'].font = title_font
+
+    # Markdown-Tabelle in echte Excel-Zellen umwandeln
+    table_data = []
+    for line in hypothesis.split('\n'):
+        if '|' in line and line.count('|') >= 2:
+            cleaned = line.strip().strip('|')
+            cells = [c.strip().replace('**', '') for c in cleaned.split('|')]
+            if not all(re.match(r'^:?-+:?$', c) for c in cells if c):
+                table_data.append(cells)
+
+    if table_data:
+        start_row = 3
+        for r_idx, row_values in enumerate(table_data):
+            current_row = start_row + r_idx
+            for c_idx, val in enumerate(row_values):
+                cell = ws3.cell(row=current_row, column=c_idx + 1, value=val)
+                cell.border = thin_border
+                
+                # Header-Zeile formatieren
+                if r_idx == 0:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                else:
+                    cell.font = regular_font
+                    cell.alignment = Alignment(vertical="center", wrap_text=True)
+
+        # Spaltenbreiten automatisch anpassen
+        for col in ws3.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            ws3.column_dimensions[col_letter].width = min(max(max_len + 4, 18), 55)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
 
 def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, sec1, sec2, sec3, footer_text):
     """Erstellt ein professionelles Word-Dokument mit dynamischer Sprache."""
@@ -806,9 +916,14 @@ if st.session_state.get("has_analysis", False):
     
     with col_fmt:
         export_choice = st.selectbox(
-            ui_format_label,
-            ["HTML Executive Report (.html)", "Microsoft Word (.docx)", "Markdown Raw (.md)"]
-        )
+    ui_format_label,
+    [
+        "Microsoft Excel Matrix (.xlsx)", 
+        "HTML Executive Report (.html)", 
+        "Microsoft Word (.docx)", 
+        "Markdown Raw (.md)"
+    ]
+)
     
     report_title = f"{ui_report_hdr}: {framework_focus}"
     file_base = f"case_report_{framework_focus.lower().replace(' ', '_')}"
@@ -816,7 +931,17 @@ if st.session_state.get("has_analysis", False):
     with col_btn:
         st.write(" ")
         st.write(" ")
-        if export_choice == "HTML Executive Report (.html)":
+        if export_choice == "Microsoft Excel Matrix (.xlsx)":
+    excel_buffer = create_excel_report(
+        report_title, framework_focus, out_analysis, out_mece, out_hypothesis
+    )
+    st.download_button(
+        label="📊 Download Excel Matrix (.xlsx)",
+        data=excel_buffer,
+        file_name=f"{file_base}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+elif export_choice == "HTML Executive Report (.html)":
             html_data = create_html_report(
                 report_title, framework_focus, out_analysis, out_mece, out_hypothesis,
                 rep_sub, rep_lbl_fw, rep_sec1, rep_sec2, rep_sec3, rep_footer
