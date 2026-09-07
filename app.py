@@ -1,6 +1,7 @@
 import os
 import io
 import re
+import html
 import streamlit as st
 from crewai import Agent, Crew, Process, Task, LLM
 from docx import Document
@@ -318,115 +319,6 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
 </html>"""
     return html_content
 
-def create_excel_report(title, framework, analysis, mece, hypothesis):
-    """Erstellt ein professionell strukturiertes Excel-Workbook (.xlsx) mit C-Level Styling."""
-    wb = openpyxl.Workbook()
-    
-    header_fill = PatternFill(start_color="0F2C59", end_color="0F2C59", fill_type="solid")
-    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    title_font = Font(name="Calibri", size=14, bold=True, color="0F2C59")
-    bold_font = Font(name="Calibri", size=11, bold=True, color="0F2C59")
-    regular_font = Font(name="Calibri", size=11)
-    
-    thin_border = Border(
-        left=Side(style='thin', color='CBD5E1'),
-        right=Side(style='thin', color='CBD5E1'),
-        top=Side(style='thin', color='CBD5E1'),
-        bottom=Side(style='thin', color='CBD5E1')
-    )
-
-    # 1. TAB: Executive Summary & SCR (mit Wrap-Text)
-    ws1 = wb.active
-    ws1.title = "Executive Summary"
-    ws1.views.sheetView[0].showGridLines = True
-
-    ws1['A1'] = title
-    ws1['A1'].font = title_font
-    ws1['A2'] = f"Framework Focus: {framework}"
-    ws1['A2'].font = Font(name="Calibri", size=11, italic=True, color="64748B")
-
-    row_idx = 4
-    for line in analysis.split('\n'):
-        line_str = line.strip()
-        if not line_str:
-            continue
-        clean_text = re.sub(r'^[#*:\s]+', '', line_str).strip()
-        cell = ws1.cell(row=row_idx, column=1, value=clean_text)
-        cell.font = bold_font if line_str.startswith('#') or line_str.startswith('**') else regular_font
-        cell.alignment = Alignment(wrap_text=True, vertical="top")
-        row_idx += 1
-    
-    ws1.column_dimensions['A'].width = 110
-
-    # 2. TAB: MECE Structure (Eingerückte Spalten-Hierarchie)
-    ws2 = wb.create_sheet(title="MECE Structure")
-    ws2.views.sheetView[0].showGridLines = True
-    ws2['A1'] = "MECE Problem Breakdown"
-    ws2['A1'].font = title_font
-
-    row_idx = 3
-    for line in mece.split('\n'):
-        line_str = line.strip()
-        if not line_str:
-            continue
-        clean_text = re.sub(r'[*#]', '', line_str).strip()
-        
-        # Ebene 1 (Hauptgruppen) in Spalte A, Ebene 2 (Unterpunkte) in Spalte B
-        if re.match(r'^\d+\.\s', clean_text):
-            cell = ws2.cell(row=row_idx, column=1, value=clean_text)
-            cell.font = bold_font
-        elif re.match(r'^\d+\.\d+', clean_text):
-            cell = ws2.cell(row=row_idx, column=2, value=clean_text)
-            cell.font = regular_font
-        else:
-            cell = ws2.cell(row=row_idx, column=1, value=clean_text)
-            cell.font = regular_font
-            
-        cell.alignment = Alignment(wrap_text=True, vertical="top")
-        row_idx += 1
-
-    ws2.column_dimensions['A'].width = 35
-    ws2.column_dimensions['B'].width = 80
-
-    # 3. TAB: KPI & Hypothesen Matrix (Formatierte Zelltabelle)
-    ws3 = wb.create_sheet(title="KPI & Hypotheses")
-    ws3.views.sheetView[0].showGridLines = True
-    ws3['A1'] = "Hypotheses & Quantified KPI Matrix"
-    ws3['A1'].font = title_font
-
-    table_data = []
-    for line in hypothesis.split('\n'):
-        if '|' in line and line.count('|') >= 2:
-            cleaned = line.strip().strip('|')
-            cells = [c.strip().replace('**', '') for c in cleaned.split('|')]
-            if not all(re.match(r'^:?-+:?$', c) for c in cells if c):
-                table_data.append(cells)
-
-    if table_data:
-        start_row = 3
-        for r_idx, row_values in enumerate(table_data):
-            current_row = start_row + r_idx
-            for c_idx, val in enumerate(row_values):
-                cell = ws3.cell(row=current_row, column=c_idx + 1, value=val)
-                cell.border = thin_border
-                cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center" if c_idx == 0 or r_idx == 0 else "left")
-                
-                if r_idx == 0:
-                    cell.fill = header_fill
-                    cell.font = header_font
-                else:
-                    cell.font = regular_font
-
-        for col in ws3.columns:
-            max_len = max(len(str(cell.value or '')) for cell in col)
-            col_letter = get_column_letter(col[0].column)
-            ws3.column_dimensions[col_letter].width = min(max(max_len + 4, 18), 50)
-
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    return buffer
-
 def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, sec1, sec2, sec3, footer_text):
     """Erstellt ein professionelles Word-Dokument mit dynamischer Sprache."""
     doc = Document()
@@ -547,6 +439,115 @@ def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, s
 
     buffer = io.BytesIO()
     doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+def create_excel_report(title, framework, analysis, mece, hypothesis):
+    """Erstellt ein professionell strukturiertes Excel-Workbook (.xlsx) mit C-Level Styling."""
+    wb = openpyxl.Workbook()
+    
+    header_fill = PatternFill(start_color="0F2C59", end_color="0F2C59", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    title_font = Font(name="Calibri", size=14, bold=True, color="0F2C59")
+    bold_font = Font(name="Calibri", size=11, bold=True, color="0F2C59")
+    regular_font = Font(name="Calibri", size=11)
+    
+    thin_border = Border(
+        left=Side(style='thin', color='CBD5E1'),
+        right=Side(style='thin', color='CBD5E1'),
+        top=Side(style='thin', color='CBD5E1'),
+        bottom=Side(style='thin', color='CBD5E1')
+    )
+
+    # 1. TAB: Executive Summary & SCR (mit Wrap-Text)
+    ws1 = wb.active
+    ws1.title = "Executive Summary"
+    ws1.views.sheetView[0].showGridLines = True
+
+    ws1['A1'] = title
+    ws1['A1'].font = title_font
+    ws1['A2'] = f"Framework Focus: {framework}"
+    ws1['A2'].font = Font(name="Calibri", size=11, italic=True, color="64748B")
+
+    row_idx = 4
+    for line in analysis.split('\n'):
+        line_str = line.strip()
+        if not line_str:
+            continue
+        clean_text = re.sub(r'^[#*:\s]+', '', line_str).strip()
+        cell = ws1.cell(row=row_idx, column=1, value=clean_text)
+        cell.font = bold_font if line_str.startswith('#') or line_str.startswith('**') else regular_font
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+        row_idx += 1
+    
+    ws1.column_dimensions['A'].width = 110
+
+    # 2. TAB: MECE Structure (Eingerückte Spalten-Hierarchie)
+    ws2 = wb.create_sheet(title="MECE Structure")
+    ws2.views.sheetView[0].showGridLines = True
+    ws2['A1'] = "MECE Problem Breakdown"
+    ws2['A1'].font = title_font
+
+    row_idx = 3
+    for line in mece.split('\n'):
+        line_str = line.strip()
+        if not line_str:
+            continue
+        clean_text = re.sub(r'[*#]', '', line_str).strip()
+        
+        # Ebene 1 (Hauptgruppen) in Spalte A, Ebene 2 (Unterpunkte) in Spalte B
+        if re.match(r'^\d+\.\s', clean_text):
+            cell = ws2.cell(row=row_idx, column=1, value=clean_text)
+            cell.font = bold_font
+        elif re.match(r'^\d+\.\d+', clean_text):
+            cell = ws2.cell(row=row_idx, column=2, value=clean_text)
+            cell.font = regular_font
+        else:
+            cell = ws2.cell(row=row_idx, column=1, value=clean_text)
+            cell.font = regular_font
+            
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+        row_idx += 1
+
+    ws2.column_dimensions['A'].width = 35
+    ws2.column_dimensions['B'].width = 80
+
+    # 3. TAB: KPI & Hypothesen Matrix (Formatierte Zelltabelle)
+    ws3 = wb.create_sheet(title="KPI & Hypotheses")
+    ws3.views.sheetView[0].showGridLines = True
+    ws3['A1'] = "Hypotheses & Quantified KPI Matrix"
+    ws3['A1'].font = title_font
+
+    table_data = []
+    for line in hypothesis.split('\n'):
+        if '|' in line and line.count('|') >= 2:
+            cleaned = line.strip().strip('|')
+            cells = [c.strip().replace('**', '') for c in cleaned.split('|')]
+            if not all(re.match(r'^:?-+:?$', c) for c in cells if c):
+                table_data.append(cells)
+
+    if table_data:
+        start_row = 3
+        for r_idx, row_values in enumerate(table_data):
+            current_row = start_row + r_idx
+            for c_idx, val in enumerate(row_values):
+                cell = ws3.cell(row=current_row, column=c_idx + 1, value=val)
+                cell.border = thin_border
+                cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center" if c_idx == 0 or r_idx == 0 else "left")
+                
+                if r_idx == 0:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                else:
+                    cell.font = regular_font
+
+        for col in ws3.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            ws3.column_dimensions[col_letter].width = min(max(max_len + 4, 18), 50)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
     buffer.seek(0)
     return buffer
 
@@ -736,9 +737,10 @@ STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
 5. Gesamtsprache der Ausgabe: Strikt auf {language}.
 """
 
-# 8. Agenten-Analyse (Mit Zero-Quota Caching für Demo-Cases)
-PRECACHED_PROFITABILITY_DE = {
-    "analysis": """### 1. Situation (S)
+# 8. PRECACHED DEMO ERGEBNISSE FÜR ALLE 4 FRAMEWORKS (DEUTSCH & ENGLISCH)
+PRECACHED_DE = {
+    "General Profitability": {
+        "analysis": """### 1. Situation (S)
 Der Mandant ist ein mittelständisches Industrieunternehmen mit einem stabilen Jahresumsatz von **45,0 Mio. €**. Die historische EBIT-Marge lag bei gesunden **11,5 %** (ca. 5,18 Mio. € EBIT).
 
 ### 2. Complication (C)
@@ -749,7 +751,7 @@ Welche spezifischen Kosten- und Mix-Treiber haben die Marge erodiert, und mit we
 
 ### 4. Resolution & Strategic Approach (R)
 Zur Erreichung der Ziel-Marge ist eine EBIT-Steigerung um mindestens **2,16 Mio. €** erforderlich. Dies erfordert eine Ursachenanalyse entlang des Profitabilitäts-Baums sowie die Implementierung eines zweiphasigen Optimierungsprogramms.""",
-    "mece": """**1. Erlösqualität & Preisdurchsetzung (Umsatz- & Mix-Hebel)**
+        "mece": """**1. Erlösqualität & Preisdurchsetzung (Umsatz- & Mix-Hebel)**
 1.1 **Preisanpassung & Indexierung:** Unzureichende Weitergabe gestiegener Inputkosten an Endkunden.
 1.2 **Portfolio-Mix-Verschiebung:** Shift von hochmargigen Spezialprodukten zu margenschwachen Standardprodukten.
 1.3 **Konditionen-Management:** Hohe Rabatte und ungünstige Frachtkonditionen bei A-Kunden.
@@ -762,15 +764,110 @@ Zur Erreichung der Ziel-Marge ist eine EBIT-Steigerung um mindestens **2,16 Mio.
 **3. Operative Fixkosten & Overhead (OPEX / Indirect Costs)**
 3.1 **SG&A-Kosten:** Ungesteuerter Anstieg der Verwaltungs- und Vertriebskosten (Fixed Cost Creep).
 3.2 **Instandhaltung & F&E:** Erhöhte Wartungsaufwände veralteter Anlagen und uneffiziente Projekte.""",
-    "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
+        "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
 | :--- | :--- | :--- | :--- |
 | **Pricing & Mix** | Selektive Preiserhöhungen (3,5 %) und Indexierung von Rohstoffklauseln stabilisieren den Deckungsbeitrag. | **Price Realization Rate > 85 %** | **+0,90 Mio. €** |
 | **COGS & Sourcing** | Neuausschreibung der Top-20 Lieferanten und Reduktion der Ausschussquote senken variable Stückkosten. | **Wareneinsatzquote < 56,1 %** | **+0,85 Mio. €** |
 | **SG&A / Overhead** | Einfrieren nicht-kritischer Sachkosten (Discretionary Spending Freeze) stoppt Fixed Cost Creep. | **SG&A-Quote < 17,6 %** | **+0,41 Mio. €** |"""
+    },
+    "Cost Reduction": {
+        "analysis": """### 1. Situation (S)
+Der Mandant ist ein international tätiger Logistikdienstleister mit Flotten- und Lagerstandorten in ganz Europa.
+
+### 2. Complication (C)
+Stark gestiegene Treibstoff- und Personalkosten sowie Ineffizienzen in der Lagerabwicklung schmälerte das operative Jahresergebnis um **4,5 Mio. €** gegenüber dem Vorjahr.
+
+### 3. Key Question (KQ)
+Über welche Hebel lassen sich die OPEX-Strukturen nachhaltig um mindestens **15 %** senken, ohne die Qualität und Termintreue im Kerngeschäft zu beeinträchtigen?
+
+### 4. Resolution & Strategic Approach (R)
+Implementierung eines Drei-Säulen-Kostenreduzierungsprogramms mit Fokus auf Tourenoptimierung, Automatisierung im Lager und Reduktion der indirekten Sachkosten.""",
+        "mece": """**1. Flotten- & Treibstoffeffizienz (Direkte OPEX)**
+1.1 **Routenoptimierung:** Reduktion von Leerfahrten durch KI-gestützte Disposition und Telematik.
+1.2 **Fuel Management:** Nachverhandlung von Tankkarten-Konditionen und Fahrerschulungen für eﬃziente Fahrweise.
+1.3 **Instandhaltung:** Optimierung der Wartungsintervalle und Flottenverjüngung zur Reduktion von Reparaturaufwänden.
+
+**2. Lager- & Standortlogistik (Infrastruktur & Personal)**
+2.1 **Prozessautomatisierung:** Einführung von Barcode-Scanning und Optimierung der Pick-&-Pack-Pfade.
+2.2 **Flächennutzung:** Konsolidierung schwach ausgelasteter Lagerstandorte zur Fixkostenreduktion.
+2.3 **Schichtplanung:** Flexible Personaleinsatzplanung zur Minimierung teurer Überstunden.
+
+**3. Indirekter Einkauf & Overhead (Indirect OPEX)**
+3.1 **Lieferantenbündelung:** Neuverhandlung der Top-15 Sachkostenverträge (Verpackung, IT, Reinigung).
+3.2 **Verwaltungsprozesse:** Digitalisierung der Frachtdokumentation zur Senkung der SG&A-Quote.""",
+        "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
+| :--- | :--- | :--- | :--- |
+| **Flottenoptimierung** | KI-Disposition und Fahrertrainings senken den Treibstoffverbrauch pro tkm um 8 %. | **Fuel Efficiency +8 %** | **+1,80 Mio. €** |
+| **Lagerlogistik** | Verdichtung der Lagerflächen ermöglicht die Schließung eines Nebenstandorts. | **Flächenproduktivität +12 %** | **+1,50 Mio. €** |
+| **Procurement & Overhead** | Bündelung des Sachkosten-Einkaufs senkt Dienstleisterkonditionen nachhaltig. | **Procurement Savings > 10 %** | **+1,20 Mio. €** |"""
+    },
+    "M&A Due Diligence": {
+        "analysis": """### 1. Situation (S)
+Ein Private Equity Investor prüft den Mehrheitserwerb an einem schnell wachsenden B2B-Softwareunternehmen (SaaS).
+
+### 2. Complication (C)
+Vor Beginn der detaillierten Commercial Due Diligence bestehen Unsicherheiten bezüglich der Belastbarkeit der ARR-Run-Rate, der Kunden-Retention und des realisierbaren Synergiepotenzials.
+
+### 3. Key Question (KQ)
+Wie nachhaltig ist das organische Umsatzwachstum und welche operativen Wertsteigerungshebel rechtfertigen den geforderten Kaufpreis-Multiple?
+
+### 4. Resolution & Strategic Approach (R)
+Durchführung einer Commercial & Operational Due Diligence mit Fokus auf Kohortenanalyse (NRR/GRR), Unit Economics und Post-Merger-Synergien.""",
+        "mece": """**1. Umsatzqualität & Kundenbasis (Top-Line Resilience)**
+1.1 **ARR & Cohort Health:** Analyse der Net Retention Rate (NRR > 105 %) und Churn-Raten nach Kundensegmenten.
+1.2 **Kundenkonzentration:** Klumpenrisiken durch Abhängigkeit von einzelnen Großmandanten.
+1.3 **Pricing Power:** Potenzial für künftige Preiserhöhungen bei Vertragsverlängerungen.
+
+**2. Unit Economics & Profitabilität (EBITDA Quality)**
+2.1 **CAC-Payback:** Verhältnis von Customer Lifetime Value (LTV) zu Kundenakquisitionskosten (CAC).
+2.2 **R&D Capitalization:** Prüfung aktivierter Eigenleistungen auf kosmetische EBITDA-Bereinigungen.
+2.3 **Gross Margin:** Stabilität der Hosting- und Customer-Support-Kosten bei Skalierung.
+
+**3. Synergiepotenziale & Wertsteigerung (Value Creation)**
+3.1 **Cross-Selling:** Vertrieb der Software über das bestehende Portfolio-Netzwerk des Investors.
+3.2 **SG&A-Synergien:** Zusammenlegung von Holding-, Finance- und Legal-Funktionen.""",
+        "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
+| :--- | :--- | :--- | :--- |
+| **ARR-Qualität** | Hohe Net Retention Rate (> 110 %) bestätigt starke Preissetzungsmacht bei Bestandskunden. | **NRR > 110 %** | **Valuation Safety** |
+| **Churn-Risiko** | Gezieltes Onboarding reduziert Logo Churn im KMU-Segment deutlich. | **Logo Churn < 5 % p.a.** | **+0,80 Mio. € ARR** |
+| **G&A-Synergien** | Konsolidierung von Holdingstrukturen hebt unmittelbare Synergien. | **G&A-Quote < 12 %** | **+1,10 Mio. € EBITDA** |"""
+    },
+    "Market Entry": {
+        "analysis": """### 1. Situation (S)
+Ein führender E-Commerce-Händler für Premium-Konsumgüter plant die geografische Expansion in zwei neue europäische Kernmärkte.
+
+### 2. Complication (C)
+Ein Investitionsbudget von 2,0 Mio. € steht zur Verfügung, jedoch bergen hohe lokale Kundenakquisitionskosten (CAC) und etablierte Lokalwettbewerber das Risiko verlängerter Amortisationszeiten.
+
+### 3. Key Question (KQ)
+Über welche Go-to-Market Strategie und Vertriebskanäle kann der Markteintritt mit einer Amortisationsdauer (Payback Period) von unter 12 Monaten realisiert werden?
+
+### 4. Resolution & Strategic Approach (R)
+Evaluierung von Markteintrittsbarrieren, Testen von Performance-Marketing-Kanälen und Lokalisierung der Logistik- und Checkout-Prozesse.""",
+        "mece": """**1. Marktattraktivität & Wettbewerbsumfeld (Market Attractiveness)**
+1.1 **Marktvolumen & Wachstum:** Zielgruppenpotenzial im Premium-Konsumgütersegment.
+1.2 **Wettbewerbsintensität:** Preispunkte, Markenloyalität und Marktanteile etablierter lokaler Player.
+1.3 **Regulatorik & Steuern:** Lokale Verbraucherschutzgesetze, VAT-Registrierung und Kennzeichnungspflichten.
+
+**2. Go-To-Market & Kundenakquisition (Commercial Strategy)**
+2.1 **Marketing-Effizienz:** Erwartete Customer Acquisition Costs (CAC) nach Kanälen (Social, Search, Influencer).
+2.2 **Lokalisierung:** Übersetzung, lokale Währung/Payment-Methoden und Vertrauenssiegel im Checkout.
+2.3 **Sortimentsstrategie:** Anpassung des Produkt-Portfolios an lokale Kundenpräferenzen.
+
+**3. Operative Abwicklung & Fulfillment (Operations)**
+3.1 **Logistik & Versand:** Anbindung lokaler Carrier für schnelle Lieferzeiten (< 48 Stunden).
+3.2 **Retourenmanagement:** Einrichtung lokaler Retouren-Hubs zur Reduktion der Rücksendekosten.""",
+        "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
+| :--- | :--- | :--- | :--- |
+| **Marketing-CAC** | Lokales Influencer- & Performance-Marketing hält CAC unter der Profitabilitätsschwelle. | **CAC < 35 € / Neukunde** | **Payback < 9 Monate** |
+| **Checkout-Conversion** | Integration lokaler Zahlungsarten steigert die Checkout-Conversion-Rate um 18 %. | **Conversion Rate > 3,2 %** | **+0,75 Mio. € Umsatz** |
+| **Retouren-Management** | Lokales Retourenlager senkt Logistik-Rückabwicklungskosten spürbar. | **Retourenkosten -25 %** | **+0,35 Mio. € Margin** |"""
+    }
 }
 
-PRECACHED_PROFITABILITY_EN = {
-    "analysis": """### 1. Situation (S)
+PRECACHED_EN = {
+    "General Profitability": {
+        "analysis": """### 1. Situation (S)
 The client is a mid-sized industrial manufacturing company with stable annual revenues of **€45.0M**. Historically, the business achieved a healthy EBIT margin of **11.5%** (~€5.18M EBIT).
 
 ### 2. Complication (C)
@@ -781,7 +878,7 @@ Which specific cost and mix drivers eroded profitability, and what strategic act
 
 ### 4. Resolution & Strategic Approach (R)
 Reaching the target margin requires a minimum EBIT expansion of **€2.16M**. This necessitates a root-cause decomposition along the profitability tree and the implementation of a two-phased performance improvement program.""",
-    "mece": """**1. Revenue Quality & Price Realization (Top-Line & Mix Levers)**
+        "mece": """**1. Revenue Quality & Price Realization (Top-Line & Mix Levers)**
 1.1 **Pricing & Indexation:** Inadequate pass-through of inflated input costs to end customers.
 1.2 **Portfolio Mix Shift:** Unfavorable volume migration from high-margin specialty items to low-margin standard products.
 1.3 **Commercial Terms:** Excessive discounting structures and unfavorable freight allowances across Key Accounts.
@@ -794,24 +891,121 @@ Reaching the target margin requires a minimum EBIT expansion of **€2.16M**. Th
 **3. Indirect OPEX & Overhead (Indirect Costs)**
 3.1 **SG&A Creep:** Uncontrolled expansion of administrative and commercial fixed overheads.
 3.2 **Maintenance & R&D:** Escalating repair expenses for aging assets and non-prioritized development projects.""",
-    "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
+        "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
 | :--- | :--- | :--- | :--- |
 | **Pricing & Mix** | Targeted price adjustments (+3.5%) and raw material indexing clauses stabilize gross margins. | **Price Realization Rate > 85%** | **+€0.90M** |
 | **COGS & Sourcing** | Re-tendering Top-20 supplier contracts and scrap reduction lower direct variable costs. | **Material Cost Ratio < 56.1%** | **+€0.85M** |
 | **SG&A / Overhead** | Discretionary spending freeze and indirect cost containment halt fixed cost creep. | **SG&A Ratio < 17.6%** | **+€0.41M** |"""
+    },
+    "Cost Reduction": {
+        "analysis": """### 1. Situation (S)
+The client is an international logistics service provider operating extensive transportation fleets and warehousing hubs across Europe.
+
+### 2. Complication (C)
+Surging fleet fuel costs, wage inflation, and operational bottlenecks reduced annual operating profit by **€4.5M** year-over-year.
+
+### 3. Key Question (KQ)
+Through which operational levers can total OPEX be sustainably reduced by at least **15%** without compromising service quality and delivery SLA compliance?
+
+### 4. Resolution & Strategic Approach (R)
+Execution of a comprehensive cost reduction program focused on fleet telematics, warehouse automation, and indirect procurement optimization.""",
+        "mece": """**1. Fleet & Fuel Efficiency (Direct OPEX)**
+1.1 **Route Optimization:** Reduction of empty mileage using AI-assisted dispatching and telematics.
+1.2 **Fuel Management:** Renegotiating fuel card terms and driver training programs for eco-driving.
+1.3 **Maintenance:** Optimization of service cycles and fleet modernization to cut repair expenses.
+
+**2. Warehouse & Infrastructure Logistics (Facility & Labor)**
+2.1 **Process Automation:** Implementation of barcode scanning and picking route optimization.
+2.2 **Footprint Rationalization:** Consolidation of underutilized warehouse space to slash fixed facility overhead.
+2.3 **Shift Scheduling:** Flexible labor scheduling to eliminate costly overtime premiums.
+
+**3. Indirect Procurement & Overhead (Indirect OPEX)**
+3.1 **Supplier Consolidation:** Re-tendering Top-15 indirect vendor contracts (packaging, IT, cleaning).
+3.2 **Administrative Digitization:** Automating freight documentation processing to reduce SG&A ratio.""",
+        "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
+| :--- | :--- | :--- | :--- |
+| **Fleet Optimization** | AI dispatching and driver training lower fuel consumption per ton-km by 8%. | **Fuel Efficiency +8%** | **+€1.80M** |
+| **Warehouse Operations** | Space consolidation enables closure of one redundant satellite facility. | **Facility Productivity +12%** | **+€1.50M** |
+| **Procurement & Overhead** | Aggregating indirect spend drives vendor discount renegotiations. | **Procurement Savings > 10%** | **+€1.20M** |"""
+    },
+    "M&A Due Diligence": {
+        "analysis": """### 1. Situation (S)
+A Private Equity investor is evaluating the majority acquisition of a high-growth B2B SaaS company.
+
+### 2. Complication (C)
+Prior to launching detailed Commercial Due Diligence, key uncertainties remain regarding ARR run-rate durability, customer retention health, and achievable post-merger synergy potential.
+
+### 3. Key Question (KQ)
+How resilient is the target's organic revenue growth, and which operational value creation levers justify the requested valuation multiple?
+
+### 4. Resolution & Strategic Approach (R)
+Execution of a Commercial & Operational Due Diligence framework focused on cohort analysis (NRR/GRR), unit economics, and synergy quantification.""",
+        "mece": """**1. Revenue Quality & Customer Base (Top-Line Resilience)**
+1.1 **ARR & Cohort Health:** Evaluation of Net Retention Rate (NRR > 105%) and churn dynamics across customer tiers.
+1.2 **Customer Concentration:** Concentration risk regarding key account dependencies.
+1.3 **Pricing Power:** Potential for contract price uplifts upon upcoming renewals.
+
+**2. Unit Economics & Profitability (EBITDA Quality)**
+2.1 **CAC Payback & LTV:** Ratio of Customer Lifetime Value (LTV) to Customer Acquisition Cost (CAC).
+2.2 **R&D Capitalization:** Scrutiny of capitalized software development costs to ensure EBITDA validity.
+2.3 **Gross Margin Stabilities:** Stabilities of cloud hosting and customer support expense scaling.
+
+**3. Synergy Potential & Value Creation (Post-Merger Value)**
+3.1 **Cross-Selling:** Distribution of software products across the investor's portfolio network.
+3.2 **SG&A Synergies:** Consolidation of holding, finance, and legal overhead functions.""",
+        "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
+| :--- | :--- | :--- | :--- |
+| **ARR Resilience** | High Net Retention Rate (> 110%) confirms strong pricing power among enterprise clients. | **NRR > 110%** | **Valuation Safety** |
+| **Churn Mitigation** | Enhanced onboarding processes significantly reduce SME logo churn. | **Logo Churn < 5% p.a.** | **+€0.80M ARR** |
+| **G&A Synergies** | Holding structure consolidation unlocks immediate operational synergies. | **G&A Ratio < 12%** | **+€1.10M EBITDA** |"""
+    },
+    "Market Entry": {
+        "analysis": """### 1. Situation (S)
+A leading direct-to-consumer premium consumer goods e-commerce retailer plans geographic expansion into two new European core markets.
+
+### 2. Complication (C)
+An investment budget of €2.0M is allocated; however, elevated local Customer Acquisition Costs (CAC) and established incumbents pose risks of extended payback timelines.
+
+### 3. Key Question (KQ)
+Which Go-To-Market strategy and commercial channel mix will achieve market entry with a Customer CAC Payback Period of under 12 months?
+
+### 4. Resolution & Strategic Approach (R)
+Assessment of market entry barriers, performance channel testing, and localization of fulfillment and checkout workflows.""",
+        "mece": """**1. Market Attractiveness & Competitive Landscape (Market Attractiveness)**
+1.1 **Market Size & Growth:** Target demographic size within the premium consumer segment.
+1.2 **Competitive Intensity:** Price positioning, brand loyalty, and market share of local incumbents.
+1.3 **Regulatory & Tax:** Local consumer protection compliance, VAT registration, and labeling mandates.
+
+**2. Go-To-Market & Commercial Strategy (Commercial Strategy)**
+2.1 **Marketing Efficiency:** Expected Customer Acquisition Costs (CAC) across channels (Social, Search, Influencers).
+2.2 **Localization:** Translation, localized payment methods, and trust badges at checkout.
+2.3 **Assortment Strategy:** Tailoring product catalog bundles to local consumer preferences.
+
+**3. Operational Execution & Fulfillment (Operations)**
+3.1 **Logistics & Delivery:** Integration of local carriers for rapid delivery SLAs (< 48 hours).
+3.2 **Returns Management:** Establishing local return processing hubs to optimize logistics cost per return.""",
+        "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
+| :--- | :--- | :--- | :--- |
+| **Marketing CAC** | Localized influencer and search campaigns maintain CAC below profitability thresholds. | **CAC < €35 / New Customer** | **Payback < 9 Months** |
+| **Checkout Conversion** | Integrating local payment methods increases checkout conversion rate by 18%. | **Conversion Rate > 3.2%** | **+€0.75M Top-Line** |
+| **Returns Efficiency** | Local return hub establishment lowers logistics reverse-processing expenses. | **Return Costs -25%** | **+0.35M Margin** |"""
+    }
 }
 
 if run_analysis:
     if not case_input.strip():
         st.warning(ui_warning)
     else:
-        is_default_demo = case_input.strip() in [
-            DEMO_CASES_DE["General Profitability"].strip(),
-            DEMO_CASES_EN["General Profitability"].strip()
-        ]
+        # Prüfen, ob der eingegebene Text einer der vordefinierten Demos entspricht (DE oder EN)
+        demo_de_text = DEMO_CASES_DE.get(framework_focus, "").strip()
+        demo_en_text = DEMO_CASES_EN.get(framework_focus, "").strip()
+        
+        is_default_demo = case_input.strip() in [demo_de_text, demo_en_text]
         
         if is_default_demo and not user_key.strip():
-            precached = PRECACHED_PROFITABILITY_EN if language == "English" else PRECACHED_PROFITABILITY_DE
+            precached_dict = PRECACHED_EN if language == "English" else PRECACHED_DE
+            precached = precached_dict.get(framework_focus, precached_dict["General Profitability"])
+            
             st.session_state["out_analysis"] = precached["analysis"]
             st.session_state["out_mece"] = precached["mece"]
             st.session_state["out_hypothesis"] = precached["hypothesis"]
@@ -918,14 +1112,14 @@ if st.session_state.get("has_analysis", False):
     
     with col_fmt:
         export_choice = st.selectbox(
-    ui_format_label,
-    [
-        "Microsoft Excel Matrix (.xlsx)", 
-        "HTML Executive Report (.html)", 
-        "Microsoft Word (.docx)", 
-        "Markdown Raw (.md)"
-    ]
-)
+            ui_format_label,
+            [
+                "Microsoft Excel Matrix (.xlsx)", 
+                "HTML Executive Report (.html)", 
+                "Microsoft Word (.docx)", 
+                "Markdown Raw (.md)"
+            ]
+        )
     
     report_title = f"{ui_report_hdr}: {framework_focus}"
     file_base = f"case_report_{framework_focus.lower().replace(' ', '_')}"
