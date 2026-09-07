@@ -162,7 +162,7 @@ gemini_llm = LLM(
 
 # 3. Hilfsfunktionen für Exporte
 def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, fw_label, sec1, sec2, sec3, footer_text):
-    """Erstellt ein professionelles Executive HTML Dashboard mit dynamischer Sprache und fester Spaltenbreite."""
+    """Erstellt ein professionelles Executive HTML Dashboard mit dynamischer Sprache und festen Druckrändern."""
     def md_to_html(md_text):
         lines = md_text.strip().split('\n')
         html_out = []
@@ -263,7 +263,7 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
-        @page {{ size: A4 portrait; margin: 12mm 15mm; }}
+        @page {{ size: A4 portrait; margin: 0; }}
         body {{ font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; line-height: 1.5; color: #1E293B; background-color: #F8FAFC; margin: 0; padding: 20px; }}
         .container {{ max-width: 850px; margin: 0 auto; background: #FFFFFF; padding: 30px 35px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }}
         .header {{ border-bottom: 2px solid #0F2C59; padding-bottom: 12px; margin-bottom: 22px; }}
@@ -285,7 +285,14 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
         
         @media print {{
             html, body {{ background: #FFFFFF !important; margin: 0 !important; padding: 0 !important; }}
-            .container {{ box-shadow: none !important; padding: 0 !important; margin: 0 auto !important; width: 100% !important; max-width: 100% !important; }}
+            .container {{ 
+                box-shadow: none !important; 
+                padding: 12mm 15mm !important; 
+                margin: 0 auto !important; 
+                width: 100% !important; 
+                max-width: 100% !important; 
+                box-sizing: border-box !important;
+            }}
         }}
     </style>
 </head>
