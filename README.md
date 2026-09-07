@@ -5,6 +5,7 @@
 ![CrewAI](https://img.shields.io/badge/Orchestration-CrewAI-1E40AF?style=flat)
 ![LLM](https://img.shields.io/badge/LLM-Gemini_3.6_Flash-0F2C59?style=flat)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat)
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Open_App-0F2C59?style=for-the-badge)](https://leon-bernhard-case-agent.streamlit.app)
 
 An enterprise-grade, multi-agent AI system designed to automate strategic problem breakdown, MECE issue trees, and hypothesis-driven KPI matrix development for management consulting, private equity, and corporate finance cases.
 
