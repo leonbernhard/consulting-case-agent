@@ -176,7 +176,7 @@ def generate_mece_dot_string(mece_text):
         
         if m_l1 and not m_l2:
             num, txt = m_l1.groups()
-            current_l1 = f"l1_{num}"
+            current_l1 = f"l1_{num.replace('.', '_')}"
             safe_txt = txt.replace('"', '\\"').strip()
             if len(safe_txt) > 38:
                 safe_txt = safe_txt[:35] + "..."
@@ -664,13 +664,6 @@ else:
     ui_demo_info = "⚡ **Demo-Vorschau aktiv:** Zur Vermeidung von API-Rate-Limits und zur Gewährleistung unmittelbarer Antwortzeiten wird für diesen Standard-Case ein vorvalidiertes Agenten-Ergebnis geladen. Bei manueller Anpassung des Briefings wird automatisch die Live-Orchestrierung gestartet."
     ui_view_mode = "MECE Ansichtsmodus"
 
-    rep_sub = "Automatisierter KI-Fallanalysebericht"
-    rep_lbl_fw = "Fokus-Framework"
-    rep_sec1 = "1. Executive Summary & SCR"
-    rep_sec2 = "2. MECE-Problemstruktur"
-    rep_sec3 = "3. Hypothesen & KPI-Matrix"
-    rep_footer = "Erstellt durch KI Consulting & Case Structuring Agent | Vertrauliches Analyse-Tool"
-
 # 6. Ergänzung der Seitenleiste
 with st.sidebar:
     st.markdown("---")
@@ -1026,7 +1019,7 @@ Assessment of market entry barriers, performance channel testing, and localizati
         "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
 | :--- | :--- | :--- | :--- |
 | **Marketing CAC** | Localized influencer and search campaigns maintain CAC below profitability thresholds. | **CAC < €35 / New Customer** | **Payback < 9 Months** |
-| **Checkout Conversion** | Integrating local payment methods increases checkout conversion rate by 18%. | **Conversion Rate > 3.2%** | **+€0.30M** |
+| **Checkout Conversion** | Integrating local payment methods increases checkout conversion rate by 18%. | **Conversion Rate > 3,2%** | **+€0.30M** |
 | **Returns Efficiency** | Local return hub establishment lowers logistics reverse-processing expenses. | **Return Costs -25%** | **+€0.35M** |"""
     }
 }
@@ -1035,14 +1028,27 @@ if run_analysis:
     if not case_input.strip():
         st.warning(ui_warning)
     else:
-        demo_de_text = DEMO_CASES_DE.get(framework_focus, "").strip()
-        demo_en_text = DEMO_CASES_EN.get(framework_focus, "").strip()
+        # String-Normalisierung für zeilenumbruchs-unabhängigen Vergleich (\r\n -> \n)
+        def normalize_text(txt):
+            if not txt:
+                return ""
+            return re.sub(r'\r\n', '\n', txt).strip()
 
-        is_default_demo = case_input.strip() in [demo_de_text, demo_en_text]
+        clean_case_input = normalize_text(case_input)
+
+        # Erstelle eine Mapping-Tabelle aller bekannten Demo-Texte zu ihren Frameworks
+        all_demo_map = {}
+        for fw, txt in DEMO_CASES_DE.items():
+            all_demo_map[normalize_text(txt)] = fw
+        for fw, txt in DEMO_CASES_EN.items():
+            all_demo_map[normalize_text(txt)] = fw
+
+        is_default_demo = clean_case_input in all_demo_map
+        matched_framework = all_demo_map.get(clean_case_input, framework_focus)
 
         if is_default_demo and not user_key.strip():
             precached_dict = PRECACHED_EN if language == "English" else PRECACHED_DE
-            precached = precached_dict.get(framework_focus, precached_dict["General Profitability"])
+            precached = precached_dict.get(matched_framework, precached_dict["General Profitability"])
 
             st.session_state["out_analysis"] = precached["analysis"]
             st.session_state["out_mece"] = precached["mece"]
