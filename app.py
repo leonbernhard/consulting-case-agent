@@ -33,6 +33,13 @@ EXECUTIVE_CSS = """
         box-shadow: 0 2px 4px rgba(15, 44, 89, 0.1) !important;
     }
 
+    div.stButton > button:hover {
+        background-color: #1E40AF !important;
+        border-color: #1E40AF !important;
+        box-shadow: 0 4px 12px rgba(15, 44, 89, 0.25) !important;
+        transform: translateY(-1px) !important;
+    }
+
     /* Header Card Refinement */
     .executive-header {
         background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
@@ -43,7 +50,7 @@ EXECUTIVE_CSS = """
         box-shadow: 0 4px 12px rgba(15, 44, 89, 0.03);
         margin-bottom: 24px;
     }
-    
+
     .tech-pill {
         display: inline-block;
         background-color: #EFF6FF;
@@ -54,13 +61,6 @@ EXECUTIVE_CSS = """
         border-radius: 12px;
         border: 1px solid #BFDBFE;
         margin-right: 6px;
-    }
-
-    div.stButton > button:hover {
-        background-color: #1E40AF !important;
-        border-color: #1E40AF !important;
-        box-shadow: 0 4px 12px rgba(15, 44, 89, 0.25) !important;
-        transform: translateY(-1px) !important;
     }
 
     /* Container Card Styling für Tab-Inhalte */
@@ -82,7 +82,7 @@ EXECUTIVE_CSS = """
         border-radius: 8px !important;
         box-shadow: 0 2px 8px rgba(15, 44, 89, 0.04) !important;
     }
-    
+
     [data-testid="stMetricLabel"] {
         font-size: 12px !important;
         font-weight: 700 !important;
@@ -90,7 +90,7 @@ EXECUTIVE_CSS = """
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
     }
-    
+
     [data-testid="stMetricValue"] {
         color: #0F2C59 !important;
         font-weight: 700 !important;
@@ -104,7 +104,7 @@ EXECUTIVE_CSS = """
         padding: 12px 20px !important;
         border-radius: 4px 4px 0 0 !important;
     }
-    
+
     button[aria-selected="true"] {
         color: #0F2C59 !important;
         border-bottom-color: #0F2C59 !important;
@@ -116,12 +116,6 @@ EXECUTIVE_CSS = """
     [data-testid="stSidebar"] {
         background-color: #F8FAFC !important;
         border-right: 1px solid #E2E8F0 !important;
-    }
-
-    /* Strukturierte Container im Ergebnisbereich */
-    .stTabs [data-testid="stMarkdownContainer"] {
-        line-height: 1.6 !important;
-        color: #1E293B !important;
     }
 
     /* Formular-Elemente & Textareas */
@@ -149,7 +143,7 @@ if not api_key:
     api_key = os.environ.get("GEMINI_API_KEY")
 
 if not api_key:
-    st.error("⚠️ GEMINI_API_KEY wurde nicht gefunden. Bitte trage deinen Key in `.streamlit/secrets.toml` oder in den Streamlit Cloud Secrets ein.")
+    st.error("⚠️ GEMINI_API_KEY wurde nicht gefunden. Bitte tragen Sie Ihren Key in `.streamlit/secrets.toml` oder in den Streamlit Cloud Secrets ein.")
     st.stop()
 
 os.environ["GEMINI_API_KEY"] = api_key
@@ -160,9 +154,52 @@ gemini_llm = LLM(
     api_key=api_key
 )
 
-# 3. Hilfsfunktionen für Exporte
+# 3. Hilfsfunktionen für Graphviz & Exporte
+def generate_mece_dot_string(mece_text):
+    """Erzeugt einen sauberen DOT-String für st.graphviz_chart ohne externe System-Dependencies."""
+    lines = [line.strip() for line in mece_text.split('\n') if line.strip()]
+    dot_lines = [
+        'digraph MECETree {',
+        '    graph [rankdir=LR, bgcolor="transparent", nodesep=0.35, ranksep=0.55];',
+        '    node [shape=box, style="filled,rounded", fontname="Segoe UI, sans-serif", fontsize=10, margin="0.15,0.1"];',
+        '    edge [color="#94A3B8", penwidth=1.2, arrowsize=0.8];',
+        '    root [label="Case Problem Breakdown", fillcolor="#0F2C59", fontcolor="#FFFFFF", color="#0F2C59", fontsize=11];'
+    ]
+    
+    current_l1 = None
+    node_count = 0
+    
+    for line in lines:
+        clean_line = re.sub(r'[*#]', '', line).strip()
+        m_l2 = re.match(r'^(\d+\.\d+)\s*(.*)', clean_line)
+        m_l1 = re.match(r'^(\d+)\.\s*(.*)', clean_line)
+        
+        if m_l1 and not m_l2:
+            num, txt = m_l1.groups()
+            current_l1 = f"l1_{num}"
+            safe_txt = txt.replace('"', '\\"').strip()
+            if len(safe_txt) > 38:
+                safe_txt = safe_txt[:35] + "..."
+            dot_lines.append(f'    {current_l1} [label="{num}. {safe_txt}", fillcolor="#EFF6FF", color="#BFDBFE", fontcolor="#1E40AF"];')
+            dot_lines.append(f'    root -> {current_l1};')
+        elif m_l2:
+            num, txt = m_l2.groups()
+            node_count += 1
+            l2_id = f"l2_{node_count}"
+            safe_txt = txt.replace('"', '\\"').strip()
+            if len(safe_txt) > 38:
+                safe_txt = safe_txt[:35] + "..."
+            dot_lines.append(f'    {l2_id} [label="{num} {safe_txt}", fillcolor="#FFFFFF", color="#CBD5E1", fontcolor="#334155"];')
+            if current_l1:
+                dot_lines.append(f'    {current_l1} -> {l2_id};')
+            else:
+                dot_lines.append(f'    root -> {l2_id};')
+                
+    dot_lines.append('}')
+    return '\n'.join(dot_lines)
+
 def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, fw_label, sec1, sec2, sec3, footer_text):
-    """Erstellt ein professionelles Executive HTML Dashboard mit dynamischer Sprache und festen Druckrändern."""
+    """Erstellt ein professionelles Executive HTML Dashboard mit fester Druckformatierung."""
     def md_to_html(md_text):
         lines = md_text.strip().split('\n')
         html_out = []
@@ -190,7 +227,7 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
                 return ""
 
             out = ['<table class="executive-table">']
-            out.append('<colgroup><col style="width: 22%;"><col style="width: 42%;"><col style="width: 18%;"><col style="width: 18%;"></colgroup>')
+            out.append('<colgroup><col style="width: 20%;"><col style="width: 38%;"><col style="width: 22%;"><col style="width: 20%;"></colgroup>')
             out.append('<thead><tr>')
             for cell in rows[0]:
                 out.append(f'<th>{format_text(cell)}</th>')
@@ -263,7 +300,7 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
-        @page {{ size: A4 portrait; margin: 0; }}
+        @page {{ size: A4 portrait; margin: 12mm 15mm; }}
         body {{ font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; line-height: 1.5; color: #1E293B; background-color: #F8FAFC; margin: 0; padding: 20px; }}
         .container {{ max-width: 850px; margin: 0 auto; background: #FFFFFF; padding: 30px 35px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }}
         .header {{ border-bottom: 2px solid #0F2C59; padding-bottom: 12px; margin-bottom: 22px; }}
@@ -274,25 +311,18 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
         p, li {{ font-size: 11.5px; color: #334155; margin-bottom: 5px; }}
         ul.executive-list {{ padding-left: 20px; margin: 6px 0; }}
         ul.executive-list li {{ margin-bottom: 3px; }}
-        
-        .executive-table {{ width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 11px; page-break-inside: avoid; table-layout: fixed; }}
-        .executive-table th {{ background-color: #0F2C59; color: #FFFFFF; font-weight: bold; text-align: left; padding: 8px 10px; border: 1px solid #0F2C59; word-wrap: break-word; }}
-        .executive-table td {{ border: 1px solid #CBD5E1; padding: 8px 10px; vertical-align: top; word-wrap: break-word; hyphens: manual; }}
+
+        .executive-table {{ width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 10.5px; page-break-inside: avoid; table-layout: fixed; }}
+        .executive-table th {{ background-color: #0F2C59; color: #FFFFFF; font-weight: bold; text-align: left; padding: 7px 8px; border: 1px solid #0F2C59; white-space: nowrap; }}
+        .executive-table td {{ border: 1px solid #CBD5E1; padding: 7px 8px; vertical-align: top; word-wrap: break-word; }}
         .executive-table tr:nth-child(even) {{ background-color: #F8FAFC; }}
-        
+
         .section-block {{ page-break-inside: avoid; }}
         .footer {{ margin-top: 30px; padding-top: 10px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; text-align: center; }}
-        
+
         @media print {{
             html, body {{ background: #FFFFFF !important; margin: 0 !important; padding: 0 !important; }}
-            .container {{ 
-                box-shadow: none !important; 
-                padding: 12mm 15mm !important; 
-                margin: 0 auto !important; 
-                width: 100% !important; 
-                max-width: 100% !important; 
-                box-sizing: border-box !important;
-            }}
+            .container {{ box-shadow: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; }}
         }}
     </style>
 </head>
@@ -303,22 +333,22 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
             <h1>{title}</h1>
             <p style="color: #64748B; margin: 0; font-size: 11px;">{sub_text}</p>
         </div>
-        
+
         <div class="section-block">
             <h2>{sec1}</h2>
             {md_to_html(analysis)}
         </div>
-        
+
         <div class="section-block">
             <h2>{sec2}</h2>
             {md_to_html(mece)}
         </div>
-        
+
         <div class="section-block">
             <h2>{sec3}</h2>
             {md_to_html(hypothesis)}
         </div>
-        
+
         <div class="footer">
             {footer_text}
         </div>
@@ -328,12 +358,12 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
     return html_content
 
 def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, sec1, sec2, sec3, footer_text):
-    """Erstellt ein professionelles Word-Dokument mit dynamischer Sprache."""
+    """Erstellt ein professionelles Word-Dokument."""
     doc = Document()
-    
+
     heading = doc.add_heading(title, level=0)
     heading.style.font.color.rgb = RGBColor(15, 44, 89)
-    
+
     p_sub = doc.add_paragraph()
     run_sub = p_sub.add_run(f"{fw_label}: {framework}")
     run_sub.bold = True
@@ -357,14 +387,14 @@ def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, s
             if all(re.match(r'^:?-+:?$', c) for c in cells if c):
                 continue
             rows_data.append(cells)
-        
+
         if not rows_data:
             return
 
         col_count = max(len(r) for r in rows_data)
         table = doc.add_table(rows=len(rows_data), cols=col_count)
         table.style = 'Table Grid'
-        
+
         for r_idx, row in enumerate(rows_data):
             for c_idx, cell_text in enumerate(row):
                 if c_idx < col_count:
@@ -453,13 +483,13 @@ def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, s
 def create_excel_report(title, framework, analysis, mece, hypothesis):
     """Erstellt ein professionell strukturiertes Excel-Workbook (.xlsx) mit C-Level Styling."""
     wb = openpyxl.Workbook()
-    
+
     header_fill = PatternFill(start_color="0F2C59", end_color="0F2C59", fill_type="solid")
     header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     title_font = Font(name="Calibri", size=14, bold=True, color="0F2C59")
     bold_font = Font(name="Calibri", size=11, bold=True, color="0F2C59")
     regular_font = Font(name="Calibri", size=11)
-    
+
     thin_border = Border(
         left=Side(style='thin', color='CBD5E1'),
         right=Side(style='thin', color='CBD5E1'),
@@ -467,7 +497,7 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         bottom=Side(style='thin', color='CBD5E1')
     )
 
-    # 1. TAB: Executive Summary & SCR (mit Wrap-Text)
+    # 1. TAB: Executive Summary & SCR
     ws1 = wb.active
     ws1.title = "Executive Summary"
     ws1.views.sheetView[0].showGridLines = True
@@ -487,10 +517,10 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         cell.font = bold_font if line_str.startswith('#') or line_str.startswith('**') else regular_font
         cell.alignment = Alignment(wrap_text=True, vertical="top")
         row_idx += 1
-    
+
     ws1.column_dimensions['A'].width = 110
 
-    # 2. TAB: MECE Structure (Eingerückte Spalten-Hierarchie)
+    # 2. TAB: MECE Structure
     ws2 = wb.create_sheet(title="MECE Structure")
     ws2.views.sheetView[0].showGridLines = True
     ws2['A1'] = "MECE Problem Breakdown"
@@ -502,8 +532,7 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         if not line_str:
             continue
         clean_text = re.sub(r'[*#]', '', line_str).strip()
-        
-        # Ebene 1 (Hauptgruppen) in Spalte A, Ebene 2 (Unterpunkte) in Spalte B
+
         if re.match(r'^\d+\.\s', clean_text):
             cell = ws2.cell(row=row_idx, column=1, value=clean_text)
             cell.font = bold_font
@@ -513,14 +542,14 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         else:
             cell = ws2.cell(row=row_idx, column=1, value=clean_text)
             cell.font = regular_font
-            
+
         cell.alignment = Alignment(wrap_text=True, vertical="top")
         row_idx += 1
 
     ws2.column_dimensions['A'].width = 35
     ws2.column_dimensions['B'].width = 80
 
-    # 3. TAB: KPI & Hypothesen Matrix (Formatierte Zelltabelle)
+    # 3. TAB: KPI & Hypothesen Matrix
     ws3 = wb.create_sheet(title="KPI & Hypotheses")
     ws3.views.sheetView[0].showGridLines = True
     ws3['A1'] = "Hypotheses & Quantified KPI Matrix"
@@ -542,7 +571,7 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
                 cell = ws3.cell(row=current_row, column=c_idx + 1, value=val)
                 cell.border = thin_border
                 cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center" if c_idx == 0 or r_idx == 0 else "left")
-                
+
                 if r_idx == 0:
                     cell.fill = header_fill
                     cell.font = header_font
@@ -595,6 +624,7 @@ if language == "English":
     ui_key_help = "If the global demo quota is exhausted, a personal free API key from Google AI Studio can be entered here."
     ui_sec_note = "🔒 *Input is isolated and processed strictly in-memory per session.*"
     ui_demo_info = "⚡ **Demo Preview Active:** To prevent API rate limits and ensure instant response times, a pre-validated agent result is loaded for this standard case. Manually editing the briefing will automatically trigger live AI orchestration."
+    ui_view_mode = "MECE View Mode"
 
     rep_sub = "Automated AI Case Analysis Report"
     rep_lbl_fw = "Framework Focus"
@@ -607,10 +637,10 @@ else:
     ui_subtitle = "Strukturierte Case-Analyse, MECE-Problembäume und datengestützte Hypothesen-Entwicklung."
     ui_framework_label = "Fokus-Framework wählen"
     ui_input_label = "Case Briefing hier eingeben:"
-    ui_input_placeholder = "Füge hier die Problemstellung ein oder lade oben einen Demo-Case..."
+    ui_input_placeholder = "Fügen Sie hier die Problemstellung ein oder laden Sie oben einen Demo-Case..."
     ui_button = "🚀 Case Analysieren"
     ui_demo_btn = "💡 Demo-Case laden"
-    ui_warning = "Bitte gib zuerst ein Case-Briefing ein."
+    ui_warning = "Bitte geben Sie zuerst ein Case-Briefing ein."
     ui_status_start = "🔍 Agenten-Crew analysiert die Problemstellung..."
     ui_status_done = "✅ Analyse erfolgreich abgeschlossen!"
     ui_kpi_hdr = "📈 Executive Metrics & Analyse-Fokus"
@@ -632,6 +662,7 @@ else:
     ui_key_help = "Falls das globale Test-Kontingent erschöpft ist, kann hier ein eigener kostenloser Key eingetragen werden."
     ui_sec_note = "🔒 *Verarbeitung erfolgt ausschließlich im flüchtigen Arbeitsspeicher.*"
     ui_demo_info = "⚡ **Demo-Vorschau aktiv:** Zur Vermeidung von API-Rate-Limits und zur Gewährleistung unmittelbarer Antwortzeiten wird für diesen Standard-Case ein vorvalidiertes Agenten-Ergebnis geladen. Bei manueller Anpassung des Briefings wird automatisch die Live-Orchestrierung gestartet."
+    ui_view_mode = "MECE Ansichtsmodus"
 
     rep_sub = "Automatisierter KI-Fallanalysebericht"
     rep_lbl_fw = "Fokus-Framework"
@@ -649,16 +680,16 @@ with st.sidebar:
         ["General Profitability", "Cost Reduction", "M&A Due Diligence", "Market Entry"],
         label_visibility="collapsed"
     )
-    
+
     st.markdown("---")
-    
+
     st.markdown(f"""
         <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
             <span style="font-weight: 700; font-size: 13px; color: #0F2C59;">{ui_key_hdr}</span>
             <p style="font-size: 11px; color: #64748B; margin-top: 4px; margin-bottom: 0px;">{ui_sec_note}</p>
         </div>
     """, unsafe_allow_html=True)
-    
+
     user_key = st.text_input(
         ui_key_label, 
         type="password", 
@@ -677,7 +708,7 @@ with st.sidebar:
         1. **Senior Strategy Consultant:** Formulates high-level SCR synthesis.
         2. **MECE Framework Architect:** Deconstructs problem into a 100% MECE tree.
         3. **Strategy & Hypothesis Lead:** Derives quantified KPI validation matrix.
-        
+
         *Built with Streamlit, CrewAI & Gemini 3.6-flash.*
         """)
 
@@ -1004,16 +1035,15 @@ if run_analysis:
     if not case_input.strip():
         st.warning(ui_warning)
     else:
-        # Prüfen, ob der eingegebene Text einer der vordefinierten Demos entspricht (DE oder EN)
         demo_de_text = DEMO_CASES_DE.get(framework_focus, "").strip()
         demo_en_text = DEMO_CASES_EN.get(framework_focus, "").strip()
-        
+
         is_default_demo = case_input.strip() in [demo_de_text, demo_en_text]
-        
+
         if is_default_demo and not user_key.strip():
             precached_dict = PRECACHED_EN if language == "English" else PRECACHED_DE
             precached = precached_dict.get(framework_focus, precached_dict["General Profitability"])
-            
+
             st.session_state["out_analysis"] = precached["analysis"]
             st.session_state["out_mece"] = precached["mece"]
             st.session_state["out_hypothesis"] = precached["hypothesis"]
@@ -1028,7 +1058,7 @@ if run_analysis:
                     llm=gemini_llm,
                     verbose=False
                 )
-                
+
                 structurer = Agent(
                     role="MECE Framework Architect",
                     goal="Erstelle eine 100% überschneidungsfreie und vollständige Problemstruktur (MECE Issue Tree) in sauberem Markdown.",
@@ -1050,13 +1080,13 @@ if run_analysis:
                     expected_output=f"Strukturierte SCR-Analyse auf {language}.",
                     agent=analyzer
                 )
-                
+
                 t2 = Task(
                     description=f"Basierend auf Task 1: Erstelle einen vollständigen MECE Issue Tree auf {language}.\n\n{FORMATTING_RULES}",
                     expected_output=f"Ein übersichtlicher MECE Issue Tree auf {language}.",
                     agent=structurer
                 )
-                
+
                 t3 = Task(
                     description=f"Basierend auf Task 2: Formuliere genau 3 priorisierte Arbeitshypothesen auf {language} inklusive KPI-Matrix.\n\n{FORMATTING_RULES}",
                     expected_output=f"3 Hypothesen mit KPI-Validierungsmatrix als Markdown-Tabelle auf {language}.",
@@ -1079,7 +1109,7 @@ if run_analysis:
                 except Exception as e:
                     status.update(label="❌ API-Limit erreicht", state="error", expanded=False)
                     if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                        st.error("⚠️ Das kostenlose Tageskontingent der API ist vorübergehend erschöpft. Bitte trage in der linken Seitenleiste einen eigenen kostenlosen Gemini API-Key ein oder versuche es in wenigen Minuten erneut.")
+                        st.error("⚠️ Das kostenlose Tageskontingent der API ist vorübergehend erschöpft. Bitte tragen Sie in der linken Seitenleiste einen eigenen kostenlosen Gemini API-Key ein oder versuchen Sie es in wenigen Minuten erneut.")
                     else:
                         st.error(f"Fehler bei der Analyse: {e}")
                     st.stop()
@@ -1107,17 +1137,28 @@ if st.session_state.get("has_analysis", False):
         st.markdown(out_analysis)
 
     with tab2:
-        st.markdown(out_mece)
+        col_mece_head, col_mece_toggle = st.columns([3, 1])
+        with col_mece_toggle:
+            view_type = st.radio(ui_view_mode, ["List", "Diagram"], horizontal=True, label_visibility="collapsed")
+        
+        if view_type == "Diagram":
+            try:
+                dot_str = generate_mece_dot_string(out_mece)
+                st.graphviz_chart(dot_str, use_container_width=True)
+            except Exception:
+                st.markdown(out_mece)
+        else:
+            st.markdown(out_mece)
 
     with tab3:
         st.markdown(out_hypothesis)
 
     st.markdown("---")
-    
+
     # Multi-Format Export Sektion
     st.subheader(ui_export_hdr)
     col_fmt, col_btn = st.columns([2, 2])
-    
+
     with col_fmt:
         export_choice = st.selectbox(
             ui_format_label,
@@ -1128,7 +1169,7 @@ if st.session_state.get("has_analysis", False):
                 "Markdown Raw (.md)"
             ]
         )
-    
+
     report_title = f"{ui_report_hdr}: {framework_focus}"
     file_base = f"case_report_{framework_focus.lower().replace(' ', '_')}"
 
