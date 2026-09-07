@@ -162,7 +162,7 @@ gemini_llm = LLM(
 
 # 3. Hilfsfunktionen für Exporte
 def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, fw_label, sec1, sec2, sec3, footer_text):
-    """Erstellt ein professionelles Executive HTML Dashboard mit dynamischer Sprache."""
+    """Erstellt ein professionelles Executive HTML Dashboard mit dynamischer Sprache und fester Spaltenbreite."""
     def md_to_html(md_text):
         lines = md_text.strip().split('\n')
         html_out = []
@@ -190,6 +190,7 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
                 return ""
 
             out = ['<table class="executive-table">']
+            out.append('<colgroup><col style="width: 22%;"><col style="width: 42%;"><col style="width: 18%;"><col style="width: 18%;"></colgroup>')
             out.append('<thead><tr>')
             for cell in rows[0]:
                 out.append(f'<th>{format_text(cell)}</th>')
@@ -262,29 +263,29 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
-        @page {{ size: A4; margin: 15mm; }}
-        body {{ font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; line-height: 1.5; color: #1E293B; background-color: #F8FAFC; margin: 0; padding: 25px; }}
-        .container {{ max-width: 850px; margin: 0 auto; background: #FFFFFF; padding: 35px 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }}
-        .header {{ border-bottom: 2px solid #0F2C59; padding-bottom: 12px; margin-bottom: 25px; }}
+        @page {{ size: A4 portrait; margin: 12mm 15mm; }}
+        body {{ font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; line-height: 1.5; color: #1E293B; background-color: #F8FAFC; margin: 0; padding: 20px; }}
+        .container {{ max-width: 850px; margin: 0 auto; background: #FFFFFF; padding: 30px 35px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }}
+        .header {{ border-bottom: 2px solid #0F2C59; padding-bottom: 12px; margin-bottom: 22px; }}
         .badge {{ display: inline-block; background: #0F2C59; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; }}
         h1 {{ color: #0F2C59; font-size: 22px; margin: 4px 0; font-weight: 700; }}
-        h2 {{ color: #0F2C59; font-size: 16px; border-bottom: 1px solid #E2E8F0; padding-bottom: 5px; margin-top: 25px; margin-bottom: 12px; font-weight: 600; page-break-after: avoid; }}
-        h3 {{ color: #334155; font-size: 13px; margin-top: 16px; margin-bottom: 6px; font-weight: 600; page-break-after: avoid; }}
-        p, li {{ font-size: 12px; color: #334155; margin-bottom: 6px; }}
-        ul.executive-list {{ padding-left: 20px; margin: 8px 0; }}
-        ul.executive-list li {{ margin-bottom: 4px; }}
+        h2 {{ color: #0F2C59; font-size: 15px; border-bottom: 1px solid #E2E8F0; padding-bottom: 5px; margin-top: 22px; margin-bottom: 10px; font-weight: 600; page-break-after: avoid; }}
+        h3 {{ color: #334155; font-size: 13px; margin-top: 14px; margin-bottom: 5px; font-weight: 600; page-break-after: avoid; }}
+        p, li {{ font-size: 11.5px; color: #334155; margin-bottom: 5px; }}
+        ul.executive-list {{ padding-left: 20px; margin: 6px 0; }}
+        ul.executive-list li {{ margin-bottom: 3px; }}
         
-        .executive-table {{ width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 11px; page-break-inside: avoid; table-layout: auto; }}
-        .executive-table th {{ background-color: #0F2C59; color: #FFFFFF; font-weight: bold; text-align: left; padding: 8px 10px; border: 1px solid #0F2C59; white-space: nowrap; }}
-        .executive-table td {{ border: 1px solid #CBD5E1; padding: 8px 10px; vertical-align: top; word-break: normal; }}
+        .executive-table {{ width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 11px; page-break-inside: avoid; table-layout: fixed; }}
+        .executive-table th {{ background-color: #0F2C59; color: #FFFFFF; font-weight: bold; text-align: left; padding: 8px 10px; border: 1px solid #0F2C59; word-wrap: break-word; }}
+        .executive-table td {{ border: 1px solid #CBD5E1; padding: 8px 10px; vertical-align: top; word-wrap: break-word; hyphens: manual; }}
         .executive-table tr:nth-child(even) {{ background-color: #F8FAFC; }}
         
         .section-block {{ page-break-inside: avoid; }}
-        .footer {{ margin-top: 35px; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; text-align: center; }}
+        .footer {{ margin-top: 30px; padding-top: 10px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; text-align: center; }}
         
         @media print {{
             html, body {{ background: #FFFFFF !important; margin: 0 !important; padding: 0 !important; }}
-            .container {{ box-shadow: none !important; padding: 0 !important; margin: 12mm auto !important; width: 90% !important; max-width: 90% !important; }}
+            .container {{ box-shadow: none !important; padding: 0 !important; margin: 0 auto !important; width: 100% !important; max-width: 100% !important; }}
         }}
     </style>
 </head>
@@ -593,7 +594,7 @@ if language == "English":
     rep_sec1 = "1. Executive Summary & SCR"
     rep_sec2 = "2. MECE Issue Tree"
     rep_sec3 = "3. Hypotheses & KPI Matrix"
-    rep_footer = "Generated by AI Consulting & Case Structuring Agent | Confidential & Professional Support Tool"
+    rep_footer = "Generated by KI Consulting & Case Structuring Agent | Confidential & Professional Support Tool"
 else:
     ui_title = "📊 Consulting Case Structuring Agent"
     ui_subtitle = "Strukturierte Case-Analyse, MECE-Problembäume und datengestützte Hypothesen-Entwicklung."
