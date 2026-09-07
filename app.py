@@ -683,6 +683,7 @@ if language == "English":
     ui_framework_label = "Select Framework Focus"
     ui_input_label = "Enter Case Briefing here:"
     ui_input_placeholder = "Paste the client's problem description here or load a demo case above..."
+    ui_privacy_notice = "⚠️ **Data Privacy Notice:** Do not enter confidential client data, proprietary metrics, or PII. Use anonymized or public data only."
     ui_button = "🚀 Analyze Case"
     ui_demo_btn = "💡 Load Demo Case"
     ui_warning = "Please enter a case briefing first."
@@ -721,6 +722,7 @@ else:
     ui_framework_label = "Fokus-Framework wählen"
     ui_input_label = "Case Briefing hier eingeben:"
     ui_input_placeholder = "Fügen Sie hier die Problemstellung ein oder laden Sie oben einen Demo-Case..."
+    ui_privacy_notice = "⚠️ **Datenschutz- & NDA-Hinweis:** Bitte keine echten Mandantennamen, vertraulichen Unternehmenskennzahlen oder personenbezogenen Daten eingeben. Nutzen Sie ausschließlich anonymisierte Case-Informationen."
     ui_button = "🚀 Case Analysieren"
     ui_demo_btn = "💡 Demo-Case laden"
     ui_warning = "Bitte geben Sie zuerst ein Case-Briefing ein."
@@ -838,6 +840,9 @@ with col_label:
 with col_btn:
     if st.button(ui_demo_btn, use_container_width=True):
         st.session_state["case_text"] = DEMO_CASES.get(framework_focus, DEMO_CASES["General Profitability"])
+
+# Datenschutz- & Compliance-Hinweis direkt vor der Eingabe
+st.caption(ui_privacy_notice)
 
 # File Uploader Baustein (PDF, DOCX, TXT)
 uploaded_file = st.file_uploader(
