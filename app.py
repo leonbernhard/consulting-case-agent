@@ -932,16 +932,16 @@ if st.session_state.get("has_analysis", False):
         st.write(" ")
         st.write(" ")
         if export_choice == "Microsoft Excel Matrix (.xlsx)":
-    excel_buffer = create_excel_report(
-        report_title, framework_focus, out_analysis, out_mece, out_hypothesis
-    )
-    st.download_button(
-        label="📊 Download Excel Matrix (.xlsx)",
-        data=excel_buffer,
-        file_name=f"{file_base}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-elif export_choice == "HTML Executive Report (.html)":
+            excel_buffer = create_excel_report(
+                report_title, framework_focus, out_analysis, out_mece, out_hypothesis
+            )
+            st.download_button(
+                label="📊 Download Excel Matrix (.xlsx)",
+                data=excel_buffer,
+                file_name=f"{file_base}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        elif export_choice == "HTML Executive Report (.html)":
             html_data = create_html_report(
                 report_title, framework_focus, out_analysis, out_mece, out_hypothesis,
                 rep_sub, rep_lbl_fw, rep_sec1, rep_sec2, rep_sec3, rep_footer
