@@ -9,6 +9,29 @@ from docx.shared import Pt, RGBColor, Inches
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+import pypdf
+
+def extract_text_from_file(uploaded_file):
+    """Extrahiert Text aus PDF-, DOCX- und TXT-Dateien."""
+    file_type = uploaded_file.name.split('.')[-1].lower()
+    extracted_text = ""
+    
+    try:
+        if file_type == "txt":
+            extracted_text = uploaded_file.read().decode("utf-8")
+        elif file_type == "docx":
+            doc = Document(uploaded_file)
+            extracted_text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+        elif file_type == "pdf":
+            reader = pypdf.PdfReader(uploaded_file)
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    extracted_text += text + "\n"
+    except Exception as e:
+        st.error(f"Fehler beim Einlesen der Datei: {e}")
+        
+    return extracted_text.strip()
 
 # Seiten-Konfiguration
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
@@ -805,14 +828,32 @@ DEMO_CASES = DEMO_CASES_EN if language == "English" else DEMO_CASES_DE
 # 7.1 Session State Initialisierung
 if "case_text" not in st.session_state:
     st.session_state["case_text"] = ""
+if "last_uploaded_file" not in st.session_state:
+    st.session_state["last_uploaded_file"] = None
 
-# 7.2 Eingabe-Header mit bündigem Demo-Button
+# 7.2 Eingabe-Header mit File-Uploader & Demo-Button
 col_label, col_btn = st.columns([3, 1])
 with col_label:
     st.markdown(f"**{ui_input_label}**")
 with col_btn:
     if st.button(ui_demo_btn, use_container_width=True):
         st.session_state["case_text"] = DEMO_CASES.get(framework_focus, DEMO_CASES["General Profitability"])
+
+# File Uploader Baustein (PDF, DOCX, TXT)
+uploaded_file = st.file_uploader(
+    "📄 Datei hochladen (PDF, DOCX, TXT)", 
+    type=["pdf", "docx", "txt"],
+    help="Laden Sie ein bestehendes Mandanten-Dokument oder ein Case-Briefing hoch."
+)
+
+if uploaded_file is not None:
+    file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+    if st.session_state["last_uploaded_file"] != file_key:
+        file_text = extract_text_from_file(uploaded_file)
+        if file_text:
+            st.session_state["case_text"] = file_text
+            st.session_state["last_uploaded_file"] = file_key
+            st.success(f"✅ Text aus '{uploaded_file.name}' erfolgreich geladen!")
 
 # 7.3 Case Briefing Textarea Eingabefeld
 case_input = st.text_area(
@@ -1078,11 +1119,11 @@ Assessment of market entry barriers, performance channel testing, and localizati
 **2. Go-To-Market & Commercial Strategy (Commercial Strategy)**
 2.1 **Marketing Efficiency:** Expected Customer Acquisition Costs (CAC) across channels (Social, Search, Influencers).
 2.2 **Localization:** Translation, localized payment methods, and trust badges at checkout.
-2.3 **Assortment Strategy:** Tailoring product catalog bundles to local consumer preferences.
+2.3 **Sortimentsstrategie:** Tailoring product catalog bundles to local consumer preferences.
 
 **3. Operational Execution & Fulfillment (Operations)**
 3.1 **Logistics & Delivery:** Integration of local carriers for rapid delivery SLAs (< 48 hours).
-3.2 **Returns Management:** Establishing local return processing hubs to optimize logistics cost per return.""",
+3.2 **Returns Management:** Establishing local return processing hubs to optimize logistics reverse-processing expenses.""",
         "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
 | :--- | :--- | :--- | :--- |
 | **Marketing CAC** | Localized influencer and search campaigns maintain CAC below profitability thresholds. | **CAC < €35 / New Customer** | **Payback < 9 Months** |
