@@ -17,7 +17,17 @@ In top-tier management consulting and M&A advisory, structuring complex client p
 
 * **Methodological Rigor:** Enforces strict consulting standards including **Situation-Complication-Resolution (SCR)** frameworks and **Mutually Exclusive, Collectively Exhaustive (MECE)** issue trees.
 * **Dual-Execution Pipeline:** Features a live multi-agent execution engine via **CrewAI & Gemini 3.6-flash** alongside a zero-quota pre-cached preview mode for instant, quota-safe demonstrations.
-* **C-Level Deliverable Export:** Generates client-ready deliverables formatted for executive presentation in **HTML (A4 print-optimized)**, **Microsoft Word (.docx)** with native grid tables, and **Raw Markdown (.md)**.
+* **C-Level Deliverable Export:** Generates client-ready deliverables formatted for executive presentation in **Microsoft Excel (.xlsx)**, **HTML (A4 print-optimized)**, **Microsoft Word (.docx)** with native grid tables, and **Raw Markdown (.md)**.
+
+---
+
+## 📸 Application Showcase
+
+![Streamlit Executive Interface](assets/ui_overview.png)
+
+| Interactive Graphviz MECE Tree | Automated Excel Matrix Deliverable (.xlsx) |
+| :---: | :---: |
+| ![MECE Tree Showcase](assets/app_demo.png) | ![Excel Matrix Deliverable](assets/excel_demo.png) |
 
 ---
 
@@ -44,13 +54,16 @@ graph TD
     Synthesizer --> Output
     
     Output --> Export[Multi-Format Export Engine]
+    Export --> EXCEL[Microsoft Excel .xlsx]
     Export --> PDF[Print-Ready HTML / PDF]
     Export --> DOCX[Microsoft Word .docx]
     Export --> MD[Raw Markdown .md]
+```
+
 ---
 
-## 🛠️ Technical Challenges & Engineering Highlights
+## 🛠️ Key Technical & Architectural Challenges Solved
 
-* **Quota Resilience & Zero-Downtime:** Engineered a hybrid execution engine that dynamically switches between live LLM orchestration and pre-cached benchmark outputs, ensuring 100% uptime and instant responses during recruiter demonstrations.
-* **Data Sanitization & Formatting:** Implemented custom regex-based text normalization to strip raw Markdown artifacts before generating native `openpyxl` Excel grids and structured Word tables.
-* **C-Level PDF Precision:** Configured native `@page` CSS print boundary rules to enforce A4 layout constraints and prevent mid-table page splits in generated HTML/PDF deliverables.
+- **API Quota Resilience & Zero-Downtime Demos:** Engineered a hybrid execution engine. To prevent API rate-limit errors (HTTP 429) during live recruiter evaluations, standard case studies leverage pre-cached, fully-structured benchmark responses, automatically falling back to live LLM execution upon custom input.
+- **Robust Data Sanitization & Grid Exporting:** Built a custom regex-parsing pipeline to clean LLM-generated Markdown artifacts (e.g., bolding, bullet points, raw symbols) before dynamically constructing native, styled `openpyxl` Excel grids and `python-docx` elements.
+- **Print-Precision C-Level Formatting:** Designed an HTML/CSS print framework using modern `@page` media rules and page-break rules, ensuring exact A4 boundaries and seamless PDF generation for board-level reporting.
