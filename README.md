@@ -1,42 +1,48 @@
-# 📊 AI Consulting & Case Structuring Agent
+# 📊 Consulting Case Structuring Agent
 
-An open-source, multi-agent AI framework designed for strategy consultants, corporate finance analysts, and business teams to automate initial case structuring, MECE issue tree generation, and hypothesis validation.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io)
+![Python](https://img.shields.io/badge/Python-3.10%2B-0F2C59?style=flat&logo=python&logoColor=white)
+![CrewAI](https://img.shields.io/badge/Orchestration-CrewAI-1E40AF?style=flat)
+![LLM](https://img.shields.io/badge/LLM-Gemini_3.6_Flash-0F2C59?style=flat)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat)
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.38+-red.svg)
-![CrewAI](https://img.shields.io/badge/CrewAI-Multi--Agent-green.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
+An enterprise-grade, multi-agent AI system designed to automate strategic problem breakdown, MECE issue trees, and hypothesis-driven KPI matrix development for management consulting, private equity, and corporate finance cases.
+
+---
+
+## 🎯 Executive Summary & Core Value Proposition
+
+In top-tier management consulting and M&A advisory, structuring complex client problems rapidly and logically is critical. The **Consulting Case Structuring Agent** leverages a sequential multi-agent AI crew to transform raw corporate briefings into actionable advisory deliverables within seconds.
+
+* **Methodological Rigor:** Enforces strict consulting standards including **Situation-Complication-Resolution (SCR)** frameworks and **Mutually Exclusive, Collectively Exhaustive (MECE)** issue trees.
+* **Dual-Execution Pipeline:** Features a live multi-agent execution engine via **CrewAI & Gemini 3.6-flash** alongside a zero-quota pre-cached preview mode for instant, quota-safe demonstrations.
+* **C-Level Deliverable Export:** Generates client-ready deliverables formatted for executive presentation in **HTML (A4 print-optimized)**, **Microsoft Word (.docx)** with native grid tables, and **Raw Markdown (.md)**.
 
 ---
 
-## 🎯 Key Features & Framework Focus
-Designed to streamline strategic problem decomposition across multiple business domains:
-- **SCR Framework Analysis:** Synthesizes complex client briefings into structured Situation, Complication, Key Question, and Resolution.
-- **MECE Issue Trees:** Decomposes operational and financial value drivers into 100% mutually exclusive and collectively exhaustive logic trees.
-- **Hypothesis & KPI Matrix:** Formulates 3 prioritized, quantitative hypotheses backed by concrete financial benchmarks and metrics.
-- **Multi-Framework Flexibility:** Pre-built logic for Profitability, Market Entry, Cost Reduction, and M&A Due Diligence.
+## 🏗️ System Architecture & Workflow
 
-## 🏗️ Architecture & Tech Stack (100% Free & Open Source)
-- **Frontend:** Streamlit
-- **Multi-Agent Orchestration:** CrewAI
-- **LLM Engine:** Google Gemini API (gemini-3.6-flash)
-- **Privacy First:** No client data persistent storage.
+The platform operates on a sequential three-agent workflow coordinated through CrewAI. Context and task outputs are dynamically passed downstream to build a cohesive strategic synthesis.
 
-## 🚀 Local Installation & Quickstart
-
-1. Clone the repository:
-   git clone https://github.com/leonbernhard/consulting-case-agent.git
-   cd consulting-case-agent
-
-2. Install dependencies:
-   pip install -r requirements.txt
-
-3. Configure your API Key:
-   Create .streamlit/secrets.toml in the project root:
-   GEMINI_API_KEY = "your_free_gemini_api_key_here"
-
-4. Launch the application:
-   streamlit run app.py
-
----
-*Disclaimer: This tool is an automated decision-support assistant designed for initial case structuring. All AI-generated analyses should be validated by a qualified domain expert.*
+```mermaid
+graph TD
+    User([User Briefing Input]) --> UI[Streamlit Executive Interface]
+    UI --> Router{Execution Mode}
+    
+    Router -->|Demo Mode| Cache[Pre-Cached Zero-Quota Engine]
+    Router -->|Live Analysis| Crew[CrewAI Sequential Pipeline]
+    
+    subgraph Multi-Agent AI Crew
+        Crew --> Agent1[Agent 1: Senior Strategy Consultant]
+        Agent1 -->|Task 1: SCR Executive Summary| Agent2[Agent 2: MECE Framework Architect]
+        Agent2 -->|Task 2: MECE Issue Tree| Agent3[Agent 3: Strategy & Hypothesis Lead]
+        Agent3 -->|Task 3: Quantified KPI Matrix| Synthesizer[Structured Synthesis Output]
+    end
+    
+    Cache --> Output[Executive Dashboard Display]
+    Synthesizer --> Output
+    
+    Output --> Export[Multi-Format Export Engine]
+    Export --> PDF[Print-Ready HTML / PDF]
+    Export --> DOCX[Microsoft Word .docx]
+    Export --> MD[Raw Markdown .md]
