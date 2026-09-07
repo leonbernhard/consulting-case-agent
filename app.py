@@ -172,10 +172,12 @@ if not api_key:
 
 os.environ["GEMINI_API_KEY"] = api_key
 
-# 2. Modell initialisieren
+# 2. Modell initialisieren mit Request-Timeout und Auto-Retries bei Server-Spikes
 gemini_llm = LLM(
     model="gemini-3.6-flash",
-    api_key=api_key
+    api_key=api_key,
+    request_timeout=90,
+    max_retries=3
 )
 
 # 3. Hilfsfunktionen für Graphviz & Exporte
@@ -792,7 +794,12 @@ with st.sidebar:
 
     if user_key.strip():
         os.environ["GEMINI_API_KEY"] = user_key.strip()
-        gemini_llm = LLM(model="gemini-3.6-flash", api_key=user_key.strip())
+        gemini_llm = LLM(
+            model="gemini-3.6-flash", 
+            api_key=user_key.strip(),
+            request_timeout=90,
+            max_retries=3
+        )
 
     st.markdown("---")
     with st.expander("ℹ️ System Architecture & Workflow"):
@@ -887,7 +894,8 @@ STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
 2. Für MECE-Strukturen und Baumdarstellungen AUSSCHLIESSLICH Standard-Markdown-Listen mit Einrückungen verwenden.
 3. KEINE H1-Überschriften (`#`) generieren. Nutze ausschließlich Unterüberschriften ab Ebene 2 (`##`).
 4. Für Tabellen ausschließlich sauberes Markdown-Tabellenformat nutzen (`| Spalte 1 | Spalte 2 |`).
-5. Gesamtsprache der Ausgabe: Strikt auf {language}.
+5. Antworte extrem präzise, auf den Punkt fokussiert und ohne Floskeln, um die Verarbeitungszeit kurz zu halten.
+6. Gesamtsprache der Ausgabe: Strikt auf {language}.
 """
 
 # 8. PRECACHED DEMO ERGEBNISSE FÜR ALLE 4 FRAMEWORKS (DEUTSCH & ENGLISCH)
@@ -1181,6 +1189,7 @@ if run_analysis:
                     goal=f"Erstelle eine präzise Executive Summary und Situation-Complication-Resolution (SCR) Analyse mit Fokus auf {framework_focus}.",
                     backstory="Erfahrener Strategy Consultant mit Spezialisierung auf prägnante Problemsynthesen und strukturierte Analysen.",
                     llm=gemini_llm,
+                    max_iter=1,
                     verbose=False
                 )
 
@@ -1189,6 +1198,7 @@ if run_analysis:
                     goal="Erstelle eine 100% überschneidungsfreie und vollständige Problemstruktur (MECE Issue Tree) in sauberem Markdown.",
                     backstory="Spezialist für logische Problemzerlegung. Achtet strikt auf Vollständigkeit und Überschneidungsfreiheit.",
                     llm=gemini_llm,
+                    max_iter=1,
                     verbose=False
                 )
 
@@ -1197,6 +1207,7 @@ if run_analysis:
                     goal="Entwickle 3 quantifizierbare Arbeitshypothesen inklusive einer strukturierten KPI-Validierungsmatrix.",
                     backstory="Experte für datengestützte Unternehmensanalysen, Performance Improvement und KPI-Konzepte.",
                     llm=gemini_llm,
+                    max_iter=1,
                     verbose=False
                 )
 
@@ -1232,8 +1243,12 @@ if run_analysis:
                     st.session_state["out_hypothesis"] = result.tasks_output[2].raw
                     st.session_state["has_analysis"] = True
                 except Exception as e:
-                    status.update(label="❌ API-Limit erreicht", state="error", expanded=False)
-                    if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    err_str = str(e)
+                    status.update(label="⚠️ Schnittstellen-Fehler", state="error", expanded=False)
+                    
+                    if "503" in err_str or "UNAVAILABLE" in err_str or "high demand" in err_str:
+                        st.warning("⚠️ **Google AI Server-Engpass (503):** Die Google Gemini-Server sind derzeit weltweit stark ausgelastet. Bitte versuchen Sie es in wenigen Sekunden erneut oder laden Sie den integrierten Demo-Case für eine Vorschau.")
+                    elif "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                         st.error("⚠️ Das kostenlose Tageskontingent der API ist vorübergehend erschöpft. Bitte tragen Sie in der linken Seitenleiste einen eigenen kostenlosen Gemini API-Key ein oder versuchen Sie es in wenigen Minuten erneut.")
                     else:
                         st.error(f"Fehler bei der Analyse: {e}")
