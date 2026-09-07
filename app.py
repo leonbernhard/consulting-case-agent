@@ -443,6 +443,7 @@ if language == "English":
     ui_key_label = "Custom Gemini API Key (Optional)"
     ui_key_help = "If the global demo quota is exhausted, a personal free API key from Google AI Studio can be entered here."
     ui_sec_note = "🔒 *Input is isolated and processed strictly in-memory per session.*"
+    ui_demo_info = "⚡ **Demo Preview Active:** To prevent API rate limits and ensure instant response times, a pre-validated agent result is loaded for this standard case. Manually editing the briefing will automatically trigger live AI orchestration."
 
     rep_sub = "Automated AI Case Analysis Report"
     rep_lbl_fw = "Framework Focus"
@@ -479,6 +480,7 @@ else:
     ui_key_label = "Eigener Gemini API-Key (Optional)"
     ui_key_help = "Falls das globale Test-Kontingent erschöpft ist, kann hier ein eigener kostenloser Key eingetragen werden."
     ui_sec_note = "🔒 *Verarbeitung erfolgt ausschließlich im flüchtigen Arbeitsspeicher.*"
+    ui_demo_info = "⚡ **Demo-Vorschau aktiv:** Zur Vermeidung von API-Rate-Limits und zur Gewährleistung unmittelbarer Antwortzeiten wird für diesen Standard-Case ein vorvalidiertes Agenten-Ergebnis geladen. Bei manueller Anpassung des Briefings wird automatisch die Live-Orchestrierung gestartet."
 
     rep_sub = "Automatisierter KI-Fallanalysebericht"
     rep_lbl_fw = "Fokus-Framework"
@@ -525,13 +527,22 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 7. Demo Cases
-DEMO_CASES = {
+# 7. Demo Cases (Bilingual)
+DEMO_CASES_DE = {
     "General Profitability": "Mandant: Mittelständisches Industrieunternehmen (Umsatz: 45 Mio. €).\nProblemstellung: Die EBIT-Marge ist innerhalb der letzten 18 Monate von 11,5 % auf 3,2 % gesunken, obwohl der Umsatz stabil geblieben ist.\nZiel: Identifikation der Hauptursachen für den Margenverfall und Entwicklung konkreter Gegenmaßnahmen zur Erreichung einer Ziel-Marge von > 8,0 %.",
     "Cost Reduction": "Mandant: Internationaler Logistikdienstleister.\nProblemstellung: Stark steigende Opex-Kosten in der Flotte und im Lagerbetrieb schmälern das Gesamtergebnis um 4,5 Mio. € im Vergleich zum Vorjahr.\nZiel: Systematische Kostenstrukturanalyse zur Identifikation von Einsparpotenzialen von mindestens 15 % ohne Qualitätsverlust im Kerngeschäft.",
     "M&A Due Diligence": "Mandant: Finanzinvestor / Private Equity.\nProblemstellung: Bewertung eines potenziellen Akquisitionsziels im Bereich B2B-Software vor Beginn der detaillierten Commercial Due Diligence.\nZiel: Validierung des nachhaltigen EBITDA-Aussagewerts, Identifikation wesentlicher Geschäftsrisiken und Prüfung der Run-Rate im Hinblick auf das Synergiepotenzial.",
     "Market Entry": "Mandant: E-Commerce-Händler für Premium-Konsumgüter.\nProblemstellung: Geplante Expansion in zwei neue europäische Märkte bei einem Investitionsbudget von 2,0 Mio. €.\nZiel: Evaluierung von Markteintrittsbarrieren, Kundenakquisitionskosten (CAC) und der erwarteten Amortisationsdauer (Payback Period)."
 }
+
+DEMO_CASES_EN = {
+    "General Profitability": "Client: Mid-sized industrial manufacturing company (Revenue: €45M).\nProblem Statement: EBIT margin collapsed from 11.5% to 3.2% over the last 18 months despite stable revenues.\nGoal: Identify core drivers of margin erosion and develop actionable countermeasures to restore target EBIT margin > 8.0%.",
+    "Cost Reduction": "Client: International logistics provider.\nProblem Statement: Rising fleet and warehousing OPEX eroded operating result by €4.5M year-over-year.\nGoal: Systematic cost structure analysis to identify at least 15% savings without impacting service quality.",
+    "M&A Due Diligence": "Client: Private Equity investor.\nProblem Statement: Evaluation of a target B2B software firm prior to commercial due diligence.\nGoal: Validate sustainable EBITDA run-rate, identify operational risks, and quantify synergy potentials.",
+    "Market Entry": "Client: Premium e-commerce consumer goods retailer.\nProblem Statement: Planned expansion into two European growth markets with a €2.0M investment budget.\nGoal: Assess market entry barriers, customer acquisition costs (CAC), and expected payback period."
+}
+
+DEMO_CASES = DEMO_CASES_EN if language == "English" else DEMO_CASES_DE
 
 # 7.1 Session State Initialisierung & Demo-Button UI
 if "case_text" not in st.session_state:
@@ -561,7 +572,7 @@ STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
 """
 
 # 8. Agenten-Analyse (Mit Zero-Quota Caching für Demo-Cases)
-PRECACHED_PROFITABILITY = {
+PRECACHED_PROFITABILITY_DE = {
     "analysis": """### 1. Situation (S)
 Der Mandant ist ein mittelständisches Industrieunternehmen mit einem stabilen Jahresumsatz von **45,0 Mio. €**. Die historische EBIT-Marge lag bei gesunden **11,5 %** (ca. 5,18 Mio. € EBIT).
 
@@ -593,18 +604,54 @@ Zur Erreichung der Ziel-Marge ist eine EBIT-Steigerung um mindestens **2,16 Mio.
 | **SG&A / Overhead** | Einfrieren nicht-kritischer Sachkosten (Discretionary Spending Freeze) stoppt Fixed Cost Creep. | **SG&A-Quote < 17,6 %** | **+0,41 Mio. €** |"""
 }
 
+PRECACHED_PROFITABILITY_EN = {
+    "analysis": """### 1. Situation (S)
+The client is a mid-sized industrial manufacturing company with stable annual revenues of **€45.0M**. Historically, the business achieved a healthy EBIT margin of **11.5%** (~€5.18M EBIT).
+
+### 2. Complication (C)
+Over the past 18 months, the EBIT margin experienced a severe drop of **8.3 percentage points to 3.2%** (~€1.44M EBIT). Because top-line revenue remained constant, the total operational loss of **~€3.74M** stems entirely from cost inflation and adverse price/product mix shifts.
+
+### 3. Key Question (KQ)
+Which specific cost and mix drivers eroded profitability, and what strategic action plan will sustainably elevate the EBIT margin back above the target benchmark of **> 8.0%** (> €3.60M EBIT)?
+
+### 4. Resolution & Strategic Approach (R)
+Reaching the target margin requires a minimum EBIT expansion of **€2.16M**. This necessitates a root-cause decomposition along the profitability tree and the implementation of a two-phased performance improvement program.""",
+    "mece": """**1. Revenue Quality & Price Realization (Top-Line & Mix Levers)**
+1.1 **Pricing & Indexation:** Inadequate pass-through of inflated input costs to end customers.
+1.2 **Portfolio Mix Shift:** Unfavorable volume migration from high-margin specialty items to low-margin standard products.
+1.3 **Commercial Terms:** Excessive discounting structures and unfavorable freight allowances across Key Accounts.
+
+**2. Variable Cost of Goods Sold (COGS / Direct Costs)**
+2.1 **Procurement & Raw Materials:** Raw material price surges without structured strategic sourcing countermeasures.
+2.2 **Manufacturing Efficiency:** Declining OEE metrics, rising scrap rates, and unoptimized overtime shifts.
+2.3 **Logistics & Energy:** Escalating outbound freight rates and energy intensity per production unit.
+
+**3. Indirect OPEX & Overhead (Indirect Costs)**
+3.1 **SG&A Creep:** Uncontrolled expansion of administrative and commercial fixed overheads.
+3.2 **Maintenance & R&D:** Escalating repair expenses for aging assets and non-prioritized development projects.""",
+    "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
+| :--- | :--- | :--- | :--- |
+| **Pricing & Mix** | Targeted price adjustments (+3.5%) and raw material indexing clauses stabilize gross margins. | **Price Realization Rate > 85%** | **+€0.90M** |
+| **COGS & Sourcing** | Re-tendering Top-20 supplier contracts and scrap reduction lower direct variable costs. | **Material Cost Ratio < 56.1%** | **+€0.85M** |
+| **SG&A / Overhead** | Discretionary spending freeze and indirect cost containment halt fixed cost creep. | **SG&A Ratio < 17.6%** | **+€0.41M** |"""
+}
+
 if st.button(ui_button):
     if not case_input.strip():
         st.warning(ui_warning)
     else:
-        is_default_demo = case_input.strip() == DEMO_CASES["General Profitability"].strip()
+        is_default_demo = case_input.strip() in [
+            DEMO_CASES_DE["General Profitability"].strip(),
+            DEMO_CASES_EN["General Profitability"].strip()
+        ]
         
         if is_default_demo and not user_key.strip():
-            st.session_state["out_analysis"] = PRECACHED_PROFITABILITY["analysis"]
-            st.session_state["out_mece"] = PRECACHED_PROFITABILITY["mece"]
-            st.session_state["out_hypothesis"] = PRECACHED_PROFITABILITY["hypothesis"]
+            precached = PRECACHED_PROFITABILITY_EN if language == "English" else PRECACHED_PROFITABILITY_DE
+            st.session_state["out_analysis"] = precached["analysis"]
+            st.session_state["out_mece"] = precached["mece"]
+            st.session_state["out_hypothesis"] = precached["hypothesis"]
             st.session_state["has_analysis"] = True
-            st.info("⚡ **Demo-Vorschau aktiv:** Zur Vermeidung von API-Rate-Limits und zur Gewährleistung unmittelbarer Antwortzeiten wird für diesen Standard-Case ein vorvalidiertes Agenten-Ergebnis geladen. Bei manueller Anpassung des Briefings wird automatisch die Live-Orchestrierung gestartet.")
+            st.info(ui_demo_info)
         else:
             with st.status(ui_status_start, expanded=True) as status:
                 analyzer = Agent(
