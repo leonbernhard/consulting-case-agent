@@ -274,9 +274,9 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
         ul.executive-list {{ padding-left: 20px; margin: 8px 0; }}
         ul.executive-list li {{ margin-bottom: 4px; }}
         
-        .executive-table {{ width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 11px; page-break-inside: avoid; }}
-        .executive-table th {{ background-color: #0F2C59; color: #FFFFFF; font-weight: bold; text-align: left; padding: 8px 10px; border: 1px solid #0F2C59; }}
-        .executive-table td {{ border: 1px solid #CBD5E1; padding: 8px 10px; vertical-align: top; }}
+        .executive-table {{ width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 11px; page-break-inside: avoid; table-layout: auto; }}
+        .executive-table th {{ background-color: #0F2C59; color: #FFFFFF; font-weight: bold; text-align: left; padding: 8px 10px; border: 1px solid #0F2C59; white-space: nowrap; }}
+        .executive-table td {{ border: 1px solid #CBD5E1; padding: 8px 10px; vertical-align: top; word-break: normal; }}
         .executive-table tr:nth-child(even) {{ background-color: #F8FAFC; }}
         
         .section-block {{ page-break-inside: avoid; }}
@@ -860,8 +860,8 @@ Evaluierung von Markteintrittsbarrieren, Testen von Performance-Marketing-Kanäl
         "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
 | :--- | :--- | :--- | :--- |
 | **Marketing-CAC** | Lokales Influencer- & Performance-Marketing hält CAC unter der Profitabilitätsschwelle. | **CAC < 35 € / Neukunde** | **Payback < 9 Monate** |
-| **Checkout-Conversion** | Integration lokaler Zahlungsarten steigert die Checkout-Conversion-Rate um 18 %. | **Conversion Rate > 3,2 %** | **+0,75 Mio. € Umsatz** |
-| **Retouren-Management** | Lokales Retourenlager senkt Logistik-Rückabwicklungskosten spürbar. | **Retourenkosten -25 %** | **+0,35 Mio. € Margin** |"""
+| **Checkout-Conversion** | Integration lokaler Zahlungsarten steigert die Checkout-Conversion-Rate um 18 %. | **Conversion Rate > 3,2 %** | **+0,30 Mio. €** |
+| **Retouren-Management** | Lokales Retourenlager senkt Logistik-Rückabwicklungskosten spürbar. | **Retourenkosten -25 %** | **+0,35 Mio. €** |"""
     }
 }
 
@@ -987,8 +987,8 @@ Assessment of market entry barriers, performance channel testing, and localizati
         "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
 | :--- | :--- | :--- | :--- |
 | **Marketing CAC** | Localized influencer and search campaigns maintain CAC below profitability thresholds. | **CAC < €35 / New Customer** | **Payback < 9 Months** |
-| **Checkout Conversion** | Integrating local payment methods increases checkout conversion rate by 18%. | **Conversion Rate > 3.2%** | **+€0.75M Top-Line** |
-| **Returns Efficiency** | Local return hub establishment lowers logistics reverse-processing expenses. | **Return Costs -25%** | **+0.35M Margin** |"""
+| **Checkout Conversion** | Integrating local payment methods increases checkout conversion rate by 18%. | **Conversion Rate > 3.2%** | **+€0.30M** |
+| **Returns Efficiency** | Local return hub establishment lowers logistics reverse-processing expenses. | **Return Costs -25%** | **+€0.35M** |"""
     }
 }
 
