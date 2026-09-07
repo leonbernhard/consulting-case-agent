@@ -36,6 +36,16 @@ EXECUTIVE_CSS = """
         transform: translateY(-1px) !important;
     }
 
+    /* Container Card Styling für Tab-Inhalte */
+    [data-testid="stTabPanel"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 8px !important;
+        padding: 24px !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02) !important;
+        margin-top: 12px !important;
+    }
+
     /* KPI Metric Cards Redesign */
     [data-testid="stMetric"] {
         background-color: #FFFFFF !important;
@@ -718,6 +728,7 @@ if st.button(ui_button):
                     st.stop()
 
 # 9. Ergebnisanzeige & Export
+# 9. Ergebnisanzeige & Export
 if st.session_state.get("has_analysis", False):
     out_analysis = st.session_state["out_analysis"]
     out_mece = st.session_state["out_mece"]
@@ -737,13 +748,13 @@ if st.session_state.get("has_analysis", False):
     tab1, tab2, tab3 = st.tabs([ui_tab1, ui_tab2, ui_tab3])
 
     with tab1:
-        st.markdown(f'<div style="background: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">{out_analysis}</div>', unsafe_allow_html=True)
+        st.markdown(out_analysis)
 
     with tab2:
-        st.markdown(f'<div style="background: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">{out_mece}</div>', unsafe_allow_html=True)
+        st.markdown(out_mece)
 
     with tab3:
-        st.markdown(f'<div style="background: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #E2E8F0; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">{out_hypothesis}</div>', unsafe_allow_html=True)
+        st.markdown(out_hypothesis)
 
     st.markdown("---")
     
