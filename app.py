@@ -28,7 +28,30 @@ EXECUTIVE_CSS = """
         transition: all 0.2s ease-in-out !important;
         box-shadow: 0 2px 4px rgba(15, 44, 89, 0.1) !important;
     }
+
+    /* Header Card Refinement */
+    .executive-header {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+        padding: 22px 26px;
+        border-radius: 10px;
+        border: 1px solid #E2E8F0;
+        border-left: 6px solid #0F2C59;
+        box-shadow: 0 4px 12px rgba(15, 44, 89, 0.03);
+        margin-bottom: 24px;
+    }
     
+    .tech-pill {
+        display: inline-block;
+        background-color: #EFF6FF;
+        color: #1E40AF;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 12px;
+        border: 1px solid #BFDBFE;
+        margin-right: 6px;
+    }
+
     div.stButton > button:hover {
         background-color: #1E40AF !important;
         border-color: #1E40AF !important;
@@ -529,11 +552,16 @@ with st.sidebar:
         os.environ["GEMINI_API_KEY"] = user_key.strip()
         gemini_llm = LLM(model="gemini-3.6-flash", api_key=user_key.strip())
 
-# HAUPTBEREICH: C-Level Header Banner
+# HAUPTBEREICH: C-Level Header Banner mit Tech-Badges
 st.markdown(f"""
-    <div style="background-color: #FFFFFF; padding: 20px 24px; border-radius: 8px; border: 1px solid #E2E8F0; border-left: 6px solid #0F2C59; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-        <h1 style="color: #0F2C59; font-size: 26px; font-weight: 700; margin: 0 0 6px 0;">{ui_title}</h1>
-        <p style="color: #64748B; font-size: 14px; margin: 0;">{ui_subtitle}</p>
+    <div class="executive-header">
+        <div style="margin-bottom: 10px;">
+            <span class="tech-pill">CrewAI Multi-Agent</span>
+            <span class="tech-pill">Gemini 3.6-flash</span>
+            <span class="tech-pill">MECE Standard</span>
+        </div>
+        <h1 style="color: #0F2C59; font-size: 25px; font-weight: 700; margin: 0 0 4px 0;">{ui_title}</h1>
+        <p style="color: #64748B; font-size: 13px; margin: 0;">{ui_subtitle}</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -554,24 +582,31 @@ DEMO_CASES_EN = {
 
 DEMO_CASES = DEMO_CASES_EN if language == "English" else DEMO_CASES_DE
 
-# 7.1 Session State Initialisierung & Demo-Button UI
+# 7.1 Session State Initialisierung
 if "case_text" not in st.session_state:
     st.session_state["case_text"] = ""
 
-col_demo, col_empty = st.columns([1, 3])
-with col_demo:
-    if st.button(ui_demo_btn):
+# 7.2 Eingabe-Header mit bündigem Demo-Button
+col_label, col_btn = st.columns([3, 1])
+with col_label:
+    st.markdown(f"**{ui_input_label}**")
+with col_btn:
+    if st.button(ui_demo_btn, use_container_width=True):
         st.session_state["case_text"] = DEMO_CASES.get(framework_focus, DEMO_CASES["General Profitability"])
 
-# 7.2 Case Briefing Textarea Eingabefeld
+# 7.3 Case Briefing Textarea Eingabefeld
 case_input = st.text_area(
-    ui_input_label,
+    "",
     value=st.session_state["case_text"],
-    height=180,
-    placeholder=ui_input_placeholder
+    height=160,
+    placeholder=ui_input_placeholder,
+    label_visibility="collapsed"
 )
 
-# 7.3 Formatierungsregeln für Agenten
+st.markdown("<div style='margin-top: -10px;'></div>", unsafe_allow_html=True)
+run_analysis = st.button(ui_button, use_container_width=True)
+
+# 7.4 Formatierungsregeln für Agenten
 FORMATTING_RULES = f"""
 STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
 1. KEINE ASCII-Boxen oder Rahmenelemente (+---+, |---|, etc.) verwenden.
@@ -646,7 +681,7 @@ Reaching the target margin requires a minimum EBIT expansion of **€2.16M**. Th
 | **SG&A / Overhead** | Discretionary spending freeze and indirect cost containment halt fixed cost creep. | **SG&A Ratio < 17.6%** | **+€0.41M** |"""
 }
 
-if st.button(ui_button):
+if run_analysis:
     if not case_input.strip():
         st.warning(ui_warning)
     else:
@@ -727,7 +762,6 @@ if st.button(ui_button):
                         st.error(f"Fehler bei der Analyse: {e}")
                     st.stop()
 
-# 9. Ergebnisanzeige & Export
 # 9. Ergebnisanzeige & Export
 if st.session_state.get("has_analysis", False):
     out_analysis = st.session_state["out_analysis"]
