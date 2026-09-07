@@ -47,3 +47,8 @@ graph TD
     Export --> PDF[Print-Ready HTML / PDF]
     Export --> DOCX[Microsoft Word .docx]
     Export --> MD[Raw Markdown .md]
+### 🛠️ Technical Challenges & Engineering Highlights
+
+* **Quota Resilience & Zero-Downtime:** Engineered a hybrid execution engine that dynamically switches between live LLM orchestration and pre-cached benchmark outputs, ensuring 100% uptime and instant responses during recruiter demonstrations.
+* **Data Sanitization & Formatting:** Implemented custom regex-based text normalization to strip raw Markdown artifacts before generating native `openpyxl` Excel grids and structured Word tables.
+* **C-Level PDF Precision:** Configured native `@page` CSS print boundary rules to enforce A4 layout constraints and prevent mid-table page splits in generated HTML/PDF deliverables.
