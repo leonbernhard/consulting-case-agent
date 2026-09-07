@@ -319,14 +319,13 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
     return html_content
 
 def create_excel_report(title, framework, analysis, mece, hypothesis):
-    """Erstellt ein professionell formatiertes Excel-Workbook (.xlsx) für Finance & M&A Teams."""
+    """Erstellt ein professionell strukturiertes Excel-Workbook (.xlsx) mit C-Level Styling."""
     wb = openpyxl.Workbook()
     
-    # C-Level Design-Styling (Farbschema #0F2C59)
     header_fill = PatternFill(start_color="0F2C59", end_color="0F2C59", fill_type="solid")
     header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     title_font = Font(name="Calibri", size=14, bold=True, color="0F2C59")
-    bold_font = Font(name="Calibri", size=11, bold=True)
+    bold_font = Font(name="Calibri", size=11, bold=True, color="0F2C59")
     regular_font = Font(name="Calibri", size=11)
     
     thin_border = Border(
@@ -336,9 +335,7 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         bottom=Side(style='thin', color='CBD5E1')
     )
 
-    # ----------------------------------------------------
-    # TAB 1: Executive Summary & SCR
-    # ----------------------------------------------------
+    # 1. TAB: Executive Summary & SCR (mit Wrap-Text)
     ws1 = wb.active
     ws1.title = "Executive Summary"
     ws1.views.sheetView[0].showGridLines = True
@@ -353,18 +350,17 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         line_str = line.strip()
         if not line_str:
             continue
-        cell = ws1.cell(row=row_idx, column=1, value=re.sub(r'[*#]', '', line_str))
+        clean_text = re.sub(r'^[#*:\s]+', '', line_str).strip()
+        cell = ws1.cell(row=row_idx, column=1, value=clean_text)
         cell.font = bold_font if line_str.startswith('#') or line_str.startswith('**') else regular_font
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
         row_idx += 1
     
     ws1.column_dimensions['A'].width = 110
 
-    # ----------------------------------------------------
-    # TAB 2: MECE Issue Tree
-    # ----------------------------------------------------
+    # 2. TAB: MECE Structure (Eingerückte Spalten-Hierarchie)
     ws2 = wb.create_sheet(title="MECE Structure")
     ws2.views.sheetView[0].showGridLines = True
-
     ws2['A1'] = "MECE Problem Breakdown"
     ws2['A1'].font = title_font
 
@@ -373,22 +369,31 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         line_str = line.strip()
         if not line_str:
             continue
-        cell = ws2.cell(row=row_idx, column=1, value=re.sub(r'[*#]', '', line_str))
-        cell.font = bold_font if line_str.startswith('**') or re.match(r'^\d+\.', line_str) else regular_font
+        clean_text = re.sub(r'[*#]', '', line_str).strip()
+        
+        # Ebene 1 (Hauptgruppen) in Spalte A, Ebene 2 (Unterpunkte) in Spalte B
+        if re.match(r'^\d+\.\s', clean_text):
+            cell = ws2.cell(row=row_idx, column=1, value=clean_text)
+            cell.font = bold_font
+        elif re.match(r'^\d+\.\d+', clean_text):
+            cell = ws2.cell(row=row_idx, column=2, value=clean_text)
+            cell.font = regular_font
+        else:
+            cell = ws2.cell(row=row_idx, column=1, value=clean_text)
+            cell.font = regular_font
+            
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
         row_idx += 1
 
-    ws2.column_dimensions['A'].width = 110
+    ws2.column_dimensions['A'].width = 35
+    ws2.column_dimensions['B'].width = 80
 
-    # ----------------------------------------------------
-    # TAB 3: KPI & Hypothesis Matrix (Formatierte Tabelle)
-    # ----------------------------------------------------
+    # 3. TAB: KPI & Hypothesen Matrix (Formatierte Zelltabelle)
     ws3 = wb.create_sheet(title="KPI & Hypotheses")
     ws3.views.sheetView[0].showGridLines = True
-
     ws3['A1'] = "Hypotheses & Quantified KPI Matrix"
     ws3['A1'].font = title_font
 
-    # Markdown-Tabelle in echte Excel-Zellen umwandeln
     table_data = []
     for line in hypothesis.split('\n'):
         if '|' in line and line.count('|') >= 2:
@@ -404,21 +409,18 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
             for c_idx, val in enumerate(row_values):
                 cell = ws3.cell(row=current_row, column=c_idx + 1, value=val)
                 cell.border = thin_border
+                cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center" if c_idx == 0 or r_idx == 0 else "left")
                 
-                # Header-Zeile formatieren
                 if r_idx == 0:
                     cell.fill = header_fill
                     cell.font = header_font
-                    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
                 else:
                     cell.font = regular_font
-                    cell.alignment = Alignment(vertical="center", wrap_text=True)
 
-        # Spaltenbreiten automatisch anpassen
         for col in ws3.columns:
             max_len = max(len(str(cell.value or '')) for cell in col)
             col_letter = get_column_letter(col[0].column)
-            ws3.column_dimensions[col_letter].width = min(max(max_len + 4, 18), 55)
+            ws3.column_dimensions[col_letter].width = min(max(max_len + 4, 18), 50)
 
     buffer = io.BytesIO()
     wb.save(buffer)
