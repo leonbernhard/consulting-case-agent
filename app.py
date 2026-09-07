@@ -199,7 +199,7 @@ def generate_mece_dot_string(mece_text):
     return '\n'.join(dot_lines)
 
 def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, fw_label, sec1, sec2, sec3, footer_text):
-    """Erstellt ein professionelles Executive HTML Dashboard mit fester Druckformatierung."""
+    """Erstellt ein professionelles Executive HTML Dashboard mit korrekten A4-PDF-Druckrändern."""
     def md_to_html(md_text):
         lines = md_text.strip().split('\n')
         html_out = []
@@ -300,9 +300,27 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
-        @page {{ size: A4 portrait; margin: 12mm 15mm; }}
-        body {{ font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; line-height: 1.5; color: #1E293B; background-color: #F8FAFC; margin: 0; padding: 20px; }}
-        .container {{ max-width: 850px; margin: 0 auto; background: #FFFFFF; padding: 30px 35px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }}
+        @page {{ 
+            size: A4 portrait; 
+            margin: 18mm 18mm 18mm 18mm; 
+        }}
+        body {{ 
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; 
+            line-height: 1.5; 
+            color: #1E293B; 
+            background-color: #F8FAFC; 
+            margin: 0; 
+            padding: 24px; 
+        }}
+        .container {{ 
+            max-width: 850px; 
+            margin: 0 auto; 
+            background: #FFFFFF; 
+            padding: 32px 36px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+            box-sizing: border-box; 
+        }}
         .header {{ border-bottom: 2px solid #0F2C59; padding-bottom: 12px; margin-bottom: 22px; }}
         .badge {{ display: inline-block; background: #0F2C59; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; }}
         h1 {{ color: #0F2C59; font-size: 22px; margin: 4px 0; font-weight: 700; }}
@@ -321,8 +339,26 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
         .footer {{ margin-top: 30px; padding-top: 10px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; text-align: center; }}
 
         @media print {{
-            html, body {{ background: #FFFFFF !important; margin: 0 !important; padding: 0 !important; }}
-            .container {{ box-shadow: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; }}
+            @page {{
+                size: A4 portrait;
+                margin: 18mm 18mm 18mm 18mm !important;
+            }}
+            html, body {{ 
+                background: #FFFFFF !important; 
+                margin: 0 !important; 
+                padding: 0 !important; 
+                width: 100% !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }}
+            .container {{ 
+                box-shadow: none !important; 
+                border: none !important;
+                padding: 0 !important; 
+                margin: 0 !important; 
+                width: 100% !important; 
+                max-width: 100% !important; 
+            }}
         }}
     </style>
 </head>
@@ -481,7 +517,7 @@ def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, s
     return buffer
 
 def create_excel_report(title, framework, analysis, mece, hypothesis):
-    """Erstellt ein professionell strukturiertes Excel-Workbook (.xlsx) mit C-Level Styling."""
+    """Erstellt ein professionell strukturiertes Excel-Workbook (.xlsx) mit C-Level Styling ohne Roh-Markdown-Artefakte."""
     wb = openpyxl.Workbook()
 
     header_fill = PatternFill(start_color="0F2C59", end_color="0F2C59", fill_type="solid")
@@ -496,6 +532,15 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         top=Side(style='thin', color='CBD5E1'),
         bottom=Side(style='thin', color='CBD5E1')
     )
+
+    def clean_md(text):
+        if not text:
+            return ""
+        txt = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+        txt = re.sub(r'\*(.*?)\*', r'\1', txt)
+        txt = re.sub(r'^[#*:\s]+', '', txt).strip()
+        txt = txt.replace('**', '').replace('*', '').replace('#', '').strip()
+        return txt
 
     # 1. TAB: Executive Summary & SCR
     ws1 = wb.active
@@ -512,9 +557,14 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         line_str = line.strip()
         if not line_str:
             continue
-        clean_text = re.sub(r'^[#*:\s]+', '', line_str).strip()
-        cell = ws1.cell(row=row_idx, column=1, value=clean_text)
-        cell.font = bold_font if line_str.startswith('#') or line_str.startswith('**') else regular_font
+        
+        is_heading = line_str.startswith('#') or line_str.startswith('**')
+        cleaned_line = clean_md(line_str)
+        if not cleaned_line:
+            continue
+
+        cell = ws1.cell(row=row_idx, column=1, value=cleaned_line)
+        cell.font = bold_font if is_heading else regular_font
         cell.alignment = Alignment(wrap_text=True, vertical="top")
         row_idx += 1
 
@@ -531,16 +581,19 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
         line_str = line.strip()
         if not line_str:
             continue
-        clean_text = re.sub(r'[*#]', '', line_str).strip()
 
-        if re.match(r'^\d+\.\s', clean_text):
-            cell = ws2.cell(row=row_idx, column=1, value=clean_text)
+        cleaned_line = clean_md(line_str)
+        if not cleaned_line:
+            continue
+
+        if re.match(r'^\d+\.\s', cleaned_line):
+            cell = ws2.cell(row=row_idx, column=1, value=cleaned_line)
             cell.font = bold_font
-        elif re.match(r'^\d+\.\d+', clean_text):
-            cell = ws2.cell(row=row_idx, column=2, value=clean_text)
+        elif re.match(r'^\d+\.\d+', cleaned_line):
+            cell = ws2.cell(row=row_idx, column=2, value=cleaned_line)
             cell.font = regular_font
         else:
-            cell = ws2.cell(row=row_idx, column=1, value=clean_text)
+            cell = ws2.cell(row=row_idx, column=1, value=cleaned_line)
             cell.font = regular_font
 
         cell.alignment = Alignment(wrap_text=True, vertical="top")
@@ -559,7 +612,7 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
     for line in hypothesis.split('\n'):
         if '|' in line and line.count('|') >= 2:
             cleaned = line.strip().strip('|')
-            cells = [c.strip().replace('**', '') for c in cleaned.split('|')]
+            cells = [clean_md(c) for c in cleaned.split('|')]
             if not all(re.match(r'^:?-+:?$', c) for c in cells if c):
                 table_data.append(cells)
 
@@ -594,7 +647,6 @@ with st.sidebar:
     language = st.selectbox("Language / Sprache", ["Deutsch", "English"])
 
 # 5. DYNAMISCHE UI- UND REPORT-TEXTE (GLOBAL DEFINIERT)
-# Fallback-Initialisierung aller Report-Variablen gegen NameError
 rep_sub = "Automatisierter KI-Fallanalysebericht"
 rep_lbl_fw = "Fokus-Framework"
 rep_sec1 = "1. Executive Summary & SCR"
