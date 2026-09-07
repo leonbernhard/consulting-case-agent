@@ -552,6 +552,17 @@ with st.sidebar:
         os.environ["GEMINI_API_KEY"] = user_key.strip()
         gemini_llm = LLM(model="gemini-3.6-flash", api_key=user_key.strip())
 
+    st.markdown("---")
+       with st.expander("ℹ️ System Architecture & Workflow"):
+       st.markdown("""
+       **Sequential Multi-Agent Crew (CrewAI):**
+       1. **Senior Strategy Consultant:** Formulates high-level SCR synthesis.
+       2. **MECE Framework Architect:** Deconstructs problem into a 100% MECE tree.
+       3. **Strategy & Hypothesis Lead:** Derives quantified KPI validation matrix.
+    
+       *Built with Streamlit, CrewAI & Gemini 3.6-flash.*
+       """)
+
 # HAUPTBEREICH: C-Level Header Banner mit Tech-Badges
 st.markdown(f"""
     <div class="executive-header">
