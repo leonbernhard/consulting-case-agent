@@ -39,9 +39,59 @@ def clean_output_text(text):
     """Bereinigt rohe HTML-Tags wie <br> aus dem Output und ersetzt sie durch saubere Zeichen."""
     if not text:
         return ""
-    # Ersetzt <br>, <br/>, <br /> durch Semikolon mit Leerzeichen
     cleaned = re.sub(r'<br\s*/?>', '; ', text, flags=re.IGNORECASE)
     return cleaned
+
+def preprocess_markdown_for_html(text):
+    """
+    Bereinigt Markdown speziell für den HTML/PDF-Druck:
+    1. Wandelt MECE-Zeilen (1. , 1.1) in saubere Markdown-Listen um.
+    2. Repariert unvollständige Markdown-Tabellen (ergänzt fehlendes |---|---|).
+    """
+    if not text:
+        return ""
+    
+    text = clean_output_text(text)
+    lines = text.split('\n')
+    processed_lines = []
+    in_table = False
+    
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        
+        # 1. MECE / Nummerierte Listen in sauberes Markdown-List-Format konvertieren
+        m_l2 = re.match(r'^(\d+\.\d+)\s*(.*)', stripped)
+        m_l1 = re.match(r'^(\d+)\.\s*(.*)', stripped)
+        
+        if m_l2:
+            num, body = m_l2.groups()
+            processed_lines.append(f"  * **{num}** {body}")
+            continue
+        elif m_l1 and not m_l2:
+            num, body = m_l1.groups()
+            processed_lines.append(f"\n* **{num}. {body}**")
+            continue
+            
+        # 2. Tabellen-Erkennung & Separator-Fix
+        is_pipe_line = '|' in stripped and stripped.count('|') >= 2
+        
+        if is_pipe_line:
+            if not in_table:
+                in_table = True
+                processed_lines.append(stripped)
+                # Prüfen, ob die nächste Zeile bereits ein Separator ist (|---|---|)
+                next_line = lines[i+1].strip() if i + 1 < len(lines) else ""
+                if not re.match(r'^\|?\s*:?-+:?\s*\|', next_line):
+                    col_count = stripped.count('|') - (1 if stripped.startswith('|') else 0) - (1 if stripped.endswith('|') else 0) + 1
+                    separator = "|" + "|".join(["---"] * max(col_count, 1)) + "|"
+                    processed_lines.append(separator)
+            else:
+                processed_lines.append(stripped)
+        else:
+            in_table = False
+            processed_lines.append(line)
+            
+    return "\n".join(processed_lines)
 
 # Seiten-Konfiguration
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
@@ -214,7 +264,6 @@ def generate_mece_dot_string(mece_text):
             current_l1 = f"l1_{num.replace('.', '_')}"
             safe_txt = txt.replace('"', '\\"').strip()
             
-            # Dynamischer Zeilenumbruch nach ca. 28 Zeichen
             wrapped_txt = "\\n".join(textwrap.wrap(safe_txt, width=28))
             full_label = f"{num}. {wrapped_txt}"
             
@@ -227,7 +276,6 @@ def generate_mece_dot_string(mece_text):
             l2_id = f"l2_{node_count}"
             safe_txt = txt.replace('"', '\\"').strip()
             
-            # Dynamischer Zeilenumbruch nach ca. 32 Zeichen
             wrapped_txt = "\\n".join(textwrap.wrap(safe_txt, width=32))
             full_label = f"{num} {wrapped_txt}"
             
@@ -241,11 +289,11 @@ def generate_mece_dot_string(mece_text):
     return '\n'.join(dot_lines)
 
 def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, fw_label, sec1, sec2, sec3, footer_text):
-    """Erstellt ein professionelles Executive HTML Dashboard mit sauberen Markdown-Tabellen & A4-PDF-Druckregeln."""
+    """Erstellt ein professionelles Executive HTML Dashboard mit korrigierten A4-PDF-Druckrändern und sauberen Tabellen."""
     
     def convert_md(text):
-        clean_text = clean_output_text(text)
-        return markdown.markdown(clean_text, extensions=["tables", "fenced_code"])
+        cleaned_text = preprocess_markdown_for_html(text)
+        return markdown.markdown(cleaned_text, extensions=["tables", "fenced_code", "sane_lists"])
 
     html_content = f"""<!DOCTYPE html>
 <html lang="de">
@@ -256,30 +304,46 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
         @media print {{
             @page {{
                 size: A4 portrait;
-                margin: 15mm 12mm 15mm 12mm !important;
+                margin: 15mm 15mm 15mm 15mm !important;
             }}
             html, body {{
                 background: #FFFFFF !important;
+                color: #1E293B !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 width: 100% !important;
+                font-size: 10pt !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }}
             .container {{
-                box-shadow: none !important;
-                border: none !important;
+                max-width: 100% !important;
+                width: 100% !important;
                 padding: 0 !important;
                 margin: 0 !important;
-                width: 100% !important;
-                max-width: 100% !important;
+                box-shadow: none !important;
+                border: none !important;
+                border-radius: 0 !important;
             }}
             .no-print {{ display: none !important; }}
+            .section-block {{
+                page-break-inside: auto !important;
+                break-inside: auto !important;
+                margin-bottom: 20px !important;
+            }}
+            h1, h2, h3 {{
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+            }}
+            table, tr, img {{
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }}
         }}
         
         body {{
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-            line-height: 1.5;
+            line-height: 1.6;
             color: #1E293B;
             background-color: #F8FAFC;
             margin: 0;
@@ -289,7 +353,7 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
             max-width: 850px;
             margin: 0 auto;
             background: #FFFFFF;
-            padding: 32px 36px;
+            padding: 35px 40px;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             box-sizing: border-box;
@@ -297,46 +361,49 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
         .header {{ border-bottom: 2px solid #0F2C59; padding-bottom: 12px; margin-bottom: 22px; }}
         .badge {{ display: inline-block; background: #0F2C59; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; }}
         h1 {{ color: #0F2C59; font-size: 22px; margin: 4px 0; font-weight: 700; }}
-        h2 {{ color: #0F2C59; font-size: 15px; border-bottom: 1px solid #E2E8F0; padding-bottom: 5px; margin-top: 22px; margin-bottom: 10px; font-weight: 600; page-break-after: avoid; break-after: avoid; }}
-        h3 {{ color: #334155; font-size: 13px; margin-top: 14px; margin-bottom: 5px; font-weight: 600; page-break-after: avoid; break-after: avoid; }}
-        p, li {{ font-size: 11.5px; color: #334155; margin-bottom: 5px; }}
-
-        /* Verhindert Seitenumbrüche mitten in Tabellen oder Blöcken */
-        .section-block, table, tr, td, th {{
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
+        h2 {{ color: #0F2C59; font-size: 16px; border-bottom: 2px solid #0F2C59; padding-bottom: 6px; margin-top: 28px; margin-bottom: 14px; font-weight: 700; }}
+        h3 {{ color: #334155; font-size: 13px; margin-top: 16px; margin-bottom: 6px; font-weight: 600; }}
+        p {{ font-size: 11pt; color: #334155; margin-bottom: 10px; line-height: 1.5; }}
+        
+        ul, ol {{
+            margin-top: 4px;
+            margin-bottom: 12px;
+            padding-left: 22px;
+        }}
+        li {{
+            font-size: 10.5pt;
+            color: #334155;
+            margin-bottom: 4px;
+            line-height: 1.5;
         }}
 
         table {{
             width: 100%;
             border-collapse: collapse;
-            margin: 14px 0;
-            font-size: 10.5px;
-            table-layout: fixed;
-            word-wrap: break-word;
+            margin: 16px 0;
+            font-size: 9.5pt;
+            table-layout: auto;
         }}
         th {{
             background-color: #0F2C59 !important;
             color: #FFFFFF !important;
             font-weight: bold;
             text-align: left;
-            padding: 8px 10px;
+            padding: 9px 12px;
             border: 1px solid #0F2C59;
-            word-wrap: break-word;
         }}
         td {{
             border: 1px solid #CBD5E1;
-            padding: 8px 10px;
+            padding: 8px 12px;
             vertical-align: top;
-            word-wrap: break-word;
-            white-space: normal;
+            word-break: normal;
             overflow-wrap: break-word;
         }}
         tr:nth-child(even) td {{
             background-color: #F8FAFC !important;
         }}
 
-        .footer {{ margin-top: 30px; padding-top: 10px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; text-align: center; }}
+        .footer {{ margin-top: 35px; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 9pt; color: #94A3B8; text-align: center; }}
     </style>
 </head>
 <body>
@@ -839,7 +906,7 @@ STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
 1. KEINE ASCII-Boxen oder Rahmenelemente (+---+, |---|, etc.) verwenden.
 2. Für MECE-Strukturen und Baumdarstellungen AUSSCHLIESSLICH Standard-Markdown-Listen verwenden.
 3. KEINE H1-Überschriften (`#`) generieren. Nutze ausschließlich Unterüberschriften ab Ebene 2 (`##`).
-4. Für Tabellen ausschließlich sauberes Markdown-Tabellenformat nutzen (`| Spalte 1 | Spalte 2 |`).
+4. Für Tabellen ausschließlich sauberes Markdown-Tabellenformat nutzen (`| Spalte 1 | Spalte 2 |`). Achte ZWINGEND darauf, direkt nach den Spaltenköpfen die Trennzeile `|---|---|` einzufügen!
 5. Antworte extrem präzise, auf den Punkt fokussiert und ohne Floskeln.
 6. MECE-BAUM STRUKTUR (ZWINGEND EINHALTEN):
    - Ebene 1: Genau 3 bis 4 Hauptkategorien, zwingend nummeriert mit '1. ', '2. ', '3. '.
@@ -1202,7 +1269,7 @@ if run_analysis:
                     if "503" in err_str or "UNAVAILABLE" in err_str or "high demand" in err_str:
                         st.warning("⚠️ **Google AI Server-Engpass (503):** Die Google Gemini-Server sind derzeit weltweit stark ausgelastet. Bitte versuchen Sie es in wenigen Sekunden erneut oder laden Sie den integrierten Demo-Case für eine Vorschau.")
                     elif "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                        st.error("⚠️ Das kostenlose Tageskontingent der API ist vorübergehend erschöpft. Bitte tragen Sie in der linken Seitenleiste einen eigenen kostenlosen Gemini API-Key ein oder versuchen Sie es in wenigen Minuten erneut.")
+                        st.error("⚠️ Das kostenlose Tageskontingent der API ist vorübergehend erschöpft. Bitte tragen Sie in der linken Seitenleiste einen eigenen kostenlos Gemini API-Key ein oder versuchen Sie es in wenigen Minuten erneut.")
                     else:
                         st.error(f"Fehler bei der Analyse: {e}")
                     st.stop()
