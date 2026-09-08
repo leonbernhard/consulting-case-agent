@@ -35,6 +35,14 @@ def extract_text_from_file(uploaded_file):
         
     return extracted_text.strip()
 
+def clean_output_text(text):
+    """Bereinigt rohe HTML-Tags wie <br> aus dem Output und ersetzt sie durch saubere Zeichen."""
+    if not text:
+        return ""
+    # Ersetzt <br>, <br/>, <br /> durch Semikolon mit Leerzeichen
+    cleaned = re.sub(r'<br\s*/?>', '; ', text, flags=re.IGNORECASE)
+    return cleaned
+
 # Seiten-Konfiguration
 st.set_page_config(page_title="Case Structuring Agent", page_icon="📊", layout="wide")
 
@@ -236,7 +244,7 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
     """Erstellt ein professionelles Executive HTML Dashboard mit sauberen Markdown-Tabellen & A4-PDF-Druckregeln."""
     
     def convert_md(text):
-        clean_text = text.replace("<br>", "<br/>")
+        clean_text = clean_output_text(text)
         return markdown.markdown(clean_text, extensions=["tables", "fenced_code"])
 
     html_content = f"""<!DOCTYPE html>
@@ -304,7 +312,8 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
             border-collapse: collapse;
             margin: 14px 0;
             font-size: 10.5px;
-            table-layout: auto;
+            table-layout: fixed;
+            word-wrap: break-word;
         }}
         th {{
             background-color: #0F2C59 !important;
@@ -313,12 +322,15 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
             text-align: left;
             padding: 8px 10px;
             border: 1px solid #0F2C59;
+            word-wrap: break-word;
         }}
         td {{
             border: 1px solid #CBD5E1;
             padding: 8px 10px;
             vertical-align: top;
             word-wrap: break-word;
+            white-space: normal;
+            overflow-wrap: break-word;
         }}
         tr:nth-child(even) td {{
             background-color: #F8FAFC !important;
@@ -371,7 +383,8 @@ def create_docx_report(title, framework, analysis, mece, hypothesis, fw_label, s
     p_sub.paragraph_format.space_after = Pt(18)
 
     def add_formatted_text(paragraph, text):
-        parts = re.split(r'(\*\*.*?\*\*)', text)
+        clean_text = clean_output_text(text)
+        parts = re.split(r'(\*\*.*?\*\*)', clean_text)
         for part in parts:
             if part.startswith('**') and part.endswith('**'):
                 run = paragraph.add_run(part[2:-2])
@@ -501,7 +514,8 @@ def create_excel_report(title, framework, analysis, mece, hypothesis):
     def clean_md(text):
         if not text:
             return ""
-        txt = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+        txt = clean_output_text(text)
+        txt = re.sub(r'\*\*(.*?)\*\*', r'\1', txt)
         txt = re.sub(r'\*(.*?)\*', r'\1', txt)
         txt = re.sub(r'^[#*:\s]+', '', txt).strip()
         txt = txt.replace('**', '').replace('*', '').replace('#', '').strip()
@@ -819,16 +833,22 @@ case_input = st.text_area(
 st.markdown("<div style='margin-top: -10px;'></div>", unsafe_allow_html=True)
 run_analysis = st.button(ui_button, use_container_width=True)
 
-# 7.4 Formatierungsregeln für Agenten
+# 7.4 Formatierungsregeln für Agenten (Optimiert für Ebene 2 & saubere Tabellen)
 FORMATTING_RULES = f"""
 STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
 1. KEINE ASCII-Boxen oder Rahmenelemente (+---+, |---|, etc.) verwenden.
-2. Für MECE-Strukturen und Baumdarstellungen AUSSCHLIESSLICH Standard-Markdown-Listen mit Einrückungen verwenden.
+2. Für MECE-Strukturen und Baumdarstellungen AUSSCHLIESSLICH Standard-Markdown-Listen verwenden.
 3. KEINE H1-Überschriften (`#`) generieren. Nutze ausschließlich Unterüberschriften ab Ebene 2 (`##`).
 4. Für Tabellen ausschließlich sauberes Markdown-Tabellenformat nutzen (`| Spalte 1 | Spalte 2 |`).
-5. Antworte extrem präzise, auf den Punkt fokussiert und ohne Floskeln, um die Verarbeitungszeit kurz zu halten.
-6. MECE-BAUM STRUKTUR-LIMIT: Maximal 3 bis 4 Hauptkategorien (Ebene 1). Maximal 2 bis 3 Unterpunkte pro Kategorie (Ebene 2). Jeder Unterpunkt DARF MAXIMAL 5 bis 8 WÖRTER lang sein (keine Schachtelsätze!).
-7. Gesamtsprache der Ausgabe: Strikt auf {language}.
+5. Antworte extrem präzise, auf den Punkt fokussiert und ohne Floskeln.
+6. MECE-BAUM STRUKTUR (ZWINGEND EINHALTEN):
+   - Ebene 1: Genau 3 bis 4 Hauptkategorien, zwingend nummeriert mit '1. ', '2. ', '3. '.
+   - Ebene 2: ZWINGEND jeweils 2 bis 3 nummerierte Unterpunkte pro Hauptkategorie, zwingend nummeriert mit '1.1 ', '1.2 ', '2.1 ', '2.2 ' usw.
+   - Jedes Ebene-2-Element DARF ZWINGEND MAXIMAL 3 bis 6 WÖRTER lang sein (keine Schachtelsätze oder Erklärungen!), damit es perfekt in Diagramm-Nodes passt.
+7. TABELLEN-FORMATIERUNG & BR-TAG VERBOT:
+   - Verwende NIEMALS HTML-Tags wie `<br>`, `<br/>` oder `<p>` in Tabellenzellen oder Fließtext!
+   - Trenne mehrere Stichpunkte innerhalb einer Tabellenzelle ausschließlich mit Semikolon `;` oder Bindestrich `-`.
+8. Gesamtsprache der Ausgabe: Strikt auf {language}.
 """
 
 # 8. PRECACHED DEMO ERGEBNISSE FÜR ALLE 4 FRAMEWORKS (DEUTSCH & ENGLISCH)
@@ -845,19 +865,19 @@ Welche spezifischen Kosten- und Mix-Treiber haben die Marge erodiert, und mit we
 
 ### 4. Resolution & Strategic Approach (R)
 Zur Erreichung der Ziel-Marge ist eine EBIT-Steigerung um mindestens **2,16 Mio. €** erforderlich. Dies erfordert eine Ursachenanalyse entlang des Profitabilitäts-Baums sowie die Implementierung eines zweiphasigen Optimierungsprogramms.""",
-        "mece": """**1. Erlösqualität & Preisdurchsetzung (Umsatz- & Mix-Hebel)**
-1.1 **Preisanpassung & Indexierung:** Unzureichende Weitergabe gestiegener Inputkosten an Endkunden.
-1.2 **Portfolio-Mix-Verschiebung:** Shift von hochmargigen Spezialprodukten zu margenschwachen Standardprodukten.
-1.3 **Konditionen-Management:** Hohe Rabatte und ungünstige Frachtkonditionen bei A-Kunden.
+        "mece": """1. Erlösqualität & Preisdurchsetzung
+1.1 Preisanpassung & Indexierung
+1.2 Portfolio-Mix-Verschiebung
+1.3 Konditionen-Management
 
-**2. Variable Herstellungskosten (COGS / Direct Costs)**
-2.1 **Einkauf & Material:** Preisanstiege bei Rohstoffen ohne adäquates Sourcing-Gegenhalten.
-2.2 **Fertigungseffizienz:** Sinkende OEE-Raten, erhöhte Ausschussquoten und Überstunden.
-2.3 **Logistik & Energie:** Gestiegene Fracht- und Energiekosten pro Produktionseinheit.
+2. Variable Herstellungskosten (COGS)
+2.1 Einkauf & Material
+2.2 Fertigungseffizienz & Ausschuss
+2.3 Logistik & Energie
 
-**3. Operative Fixkosten & Overhead (OPEX / Indirect Costs)**
-3.1 **SG&A-Kosten:** Ungesteuerter Anstieg der Verwaltungs- und Vertriebskosten (Fixed Cost Creep).
-3.2 **Instandhaltung & F&E:** Erhöhte Wartungsaufwände veralteter Anlagen und uneffiziente Projekte.""",
+3. Operative Fixkosten & Overhead (OPEX)
+3.1 SG&A-Kostenkontrolle
+3.2 Instandhaltung & F&E""",
         "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
 | :--- | :--- | :--- | :--- |
 | **Pricing & Mix** | Selektive Preiserhöhungen (3,5 %) und Indexierung von Rohstoffklauseln stabilisieren den Deckungsbeitrag. | **Price Realization Rate > 85 %** | **+0,90 Mio. €** |
@@ -876,19 +896,19 @@ Stark gestiegene Treibstoff- und Personalkosten sowie Ineffizienzen in der Lager
 
 ### 4. Resolution & Strategic Approach (R)
 Implementierung eines Drei-Säulen-Kostenreduzierungsprogramms mit Fokus auf Tourenoptimierung, Automatisierung im Lager und Reduktion der indirekten Sachkosten.""",
-        "mece": """**1. Flotten- & Treibstoffeffizienz (Direkte OPEX)**
-1.1 **Routenoptimierung:** Reduktion von Leerfahrten durch KI-gestützte Disposition und Telematik.
-1.2 **Fuel Management:** Nachverhandlung von Tankkarten-Konditionen und Fahrerschulungen für eﬃziente Fahrweise.
-1.3 **Instandhaltung:** Optimierung der Wartungsintervalle und Flottenverjüngung zur Reduktion von Reparaturaufwänden.
+        "mece": """1. Flotten- & Treibstoffeffizienz
+1.1 Routenoptimierung durch KI
+1.2 Fuel Management & Fahrerschulung
+1.3 Instandhaltung & Servicetrends
 
-**2. Lager- & Standortlogistik (Infrastruktur & Personal)**
-2.1 **Prozessautomatisierung:** Einführung von Barcode-Scanning und Optimierung der Pick-&-Pack-Pfade.
-2.2 **Flächennutzung:** Konsolidierung schwach ausgelasteter Lagerstandorte zur Fixkostenreduktion.
-2.3 **Schichtplanung:** Flexible Personaleinsatzplanung zur Minimierung teurer Überstunden.
+2. Lager- & Standortlogistik
+2.1 Prozessautomatisierung im Lager
+2.2 Flächenkonsolidierung schwacher Standorte
+2.3 Flexible Schichtplanung
 
-**3. Indirekter Einkauf & Overhead (Indirect OPEX)**
-3.1 **Lieferantenbündelung:** Neuverhandlung der Top-15 Sachkostenverträge (Verpackung, IT, Reinigung).
-3.2 **Verwaltungsprozesse:** Digitalisierung der Frachtdokumentation zur Senkung der SG&A-Quote.""",
+3. Indirekter Einkauf & Overhead
+3.1 Lieferantenbündelung bei Sachkosten
+3.2 Digitalisierung der Frachtdokumentation""",
         "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
 | :--- | :--- | :--- | :--- |
 | **Flottenoptimierung** | KI-Disposition und Fahrertrainings senken den Treibstoffverbrauch pro tkm um 8 %. | **Fuel Efficiency +8 %** | **+1,80 Mio. €** |
@@ -907,19 +927,19 @@ Wie nachhaltig ist das organische Umsatzwachstum und welche operativen Wertsteig
 
 ### 4. Resolution & Strategic Approach (R)
 Durchführung einer Commercial & Operational Due Diligence mit Fokus auf Kohortenanalyse (NRR/GRR), Unit Economics und Post-Merger-Synergien.""",
-        "mece": """**1. Umsatzqualität & Kundenbasis (Top-Line Resilience)**
-1.1 **ARR & Cohort Health:** Analyse der Net Retention Rate (NRR > 105 %) und Churn-Raten nach Kundensegmenten.
-1.2 **Kundenkonzentration:** Klumpenrisiken durch Abhängigkeit von einzelnen Großmandanten.
-1.3 **Pricing Power:** Potenzial für künftige Preiserhöhungen bei Vertragsverlängerungen.
+        "mece": """1. Umsatzqualität & Kundenbasis
+1.1 ARR & Cohort Health
+1.2 Kundenkonzentration reduzieren
+1.3 Pricing Power prüfen
 
-**2. Unit Economics & Profitabilität (EBITDA Quality)**
-2.1 **CAC-Payback:** Verhältnis von Customer Lifetime Value (LTV) zu Kundenakquisitionskosten (CAC).
-2.2 **R&D Capitalization:** Prüfung aktivierter Eigenleistungen auf kosmetische EBITDA-Bereinigungen.
-2.3 **Gross Margin:** Stabilität der Hosting- und Customer-Support-Kosten bei Skalierung.
+2. Unit Economics & Profitabilität
+2.1 LTV/CAC-Verhältnis
+2.2 R&D-Aktivierung bereinigen
+2.3 Gross Margin Stabilität
 
-**3. Synergiepotenziale & Wertsteigerung (Value Creation)**
-3.1 **Cross-Selling:** Vertrieb der Software über das bestehende Portfolio-Netzwerk des Investors.
-3.2 **SG&A-Synergien:** Zusammenlegung von Holding-, Finance- und Legal-Funktionen.""",
+3. Synergiepotenziale & Wertsteigerung
+3.1 Cross-Selling im Portfolio
+3.2 SG&A-Synergien heben""",
         "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
 | :--- | :--- | :--- | :--- |
 | **ARR-Qualität** | Hohe Net Retention Rate (> 110 %) bestätigt starke Preissetzungsmacht bei Bestandskunden. | **NRR > 110 %** | **Valuation Safety** |
@@ -938,19 +958,19 @@ Ein Investitionsbudget von 2,0 Mio. € steht zur Verfügung, jedoch bergen hohe
 
 ### 4. Resolution & Strategic Approach (R)
 Evaluierung von Markteintrittsbarrieren, Testen von Performance-Marketing-Kanälen und Lokalisierung der Logistik- und Checkout-Prozesse.""",
-        "mece": """**1. Marktattraktivität & Wettbewerbsumfeld (Market Attractiveness)**
-1.1 **Marktvolumen & Wachstum:** Zielgruppenpotenzial im Premium-Konsumgütersegment.
-1.2 **Wettbewerbsintensität:** Preispunkte, Markenloyalität und Marktanteile etablierter lokaler Player.
-1.3 **Regulatorik & Steuern:** Lokale Verbraucherschutzgesetze, VAT-Registrierung und Kennzeichnungspflichten.
+        "mece": """1. Marktattraktivität & Wettbewerb
+1.1 Marktvolumen & Zielgruppen
+1.2 Wettbewerbsintensität analysieren
+1.3 Regulatory & Tax Compliance
 
-**2. Go-To-Market & Kundenakquisition (Commercial Strategy)**
-2.1 **Marketing-Effizienz:** Erwartete Customer Acquisition Costs (CAC) nach Kanälen (Social, Search, Influencer).
-2.2 **Lokalisierung:** Übersetzung, lokale Währung/Payment-Methoden und Vertrauenssiegel im Checkout.
-2.3 **Sortimentsstrategie:** Anpassung des Produkt-Portfolios an lokale Kundenpräferenzen.
+2. Go-To-Market & Akquisition
+2.1 Marketing-CAC optimieren
+2.2 Checkout-Lokalisierung
+2.3 Sortimentsanpassung
 
-**3. Operative Abwicklung & Fulfillment (Operations)**
-3.1 **Logistik & Versand:** Anbindung lokaler Carrier für schnelle Lieferzeiten (< 48 Stunden).
-3.2 **Retourenmanagement:** Einrichtung lokaler Retouren-Hubs zur Reduktion der Rücksendekosten.""",
+3. Operative Abwicklung & Fulfillment
+3.1 Anbindung lokaler Carrier
+3.2 Retourenlager einrichten""",
         "hypothesis": """| Bereich | Primäre Hypothese | KPI / Ziel-Benchmark | Erwarteter EBIT-Hebel |
 | :--- | :--- | :--- | :--- |
 | **Marketing-CAC** | Lokales Influencer- & Performance-Marketing hält CAC unter der Profitabilitätsschwelle. | **CAC < 35 € / Neukunde** | **Payback < 9 Monate** |
@@ -972,19 +992,19 @@ Which specific cost and mix drivers eroded profitability, and what strategic act
 
 ### 4. Resolution & Strategic Approach (R)
 Reaching the target margin requires a minimum EBIT expansion of **€2.16M**. This necessitates a root-cause decomposition along the profitability tree and the implementation of a two-phased performance improvement program.""",
-        "mece": """**1. Revenue Quality & Price Realization (Top-Line & Mix Levers)**
-1.1 **Pricing & Indexation:** Inadequate pass-through of inflated input costs to end customers.
-1.2 **Portfolio Mix Shift:** Unfavorable volume migration from high-margin specialty items to low-margin standard products.
-1.3 **Commercial Terms:** Excessive discounting structures and unfavorable freight allowances across Key Accounts.
+        "mece": """1. Revenue Quality & Price Realization
+1.1 Pricing & Pass-Through Clauses
+1.2 Portfolio Mix Shift
+1.3 Commercial Terms & Discounts
 
-**2. Variable Cost of Goods Sold (COGS / Direct Costs)**
-2.1 **Procurement & Raw Materials:** Raw material price surges without structured strategic sourcing countermeasures.
-2.2 **Manufacturing Efficiency:** Declining OEE metrics, rising scrap rates, and unoptimized overtime shifts.
-2.3 **Logistics & Energy:** Escalating outbound freight rates and energy intensity per production unit.
+2. Variable Cost of Goods Sold (COGS)
+2.1 Procurement & Raw Materials
+2.2 Manufacturing Efficiency & Scrap
+2.3 Freight & Energy Costs
 
-**3. Indirect OPEX & Overhead (Indirect Costs)**
-3.1 **SG&A Creep:** Uncontrolled expansion of administrative and commercial fixed overheads.
-3.2 **Maintenance & R&D:** Escalating repair expenses for aging assets and non-prioritized development projects.""",
+3. Indirect OPEX & Overhead
+3.1 SG&A Cost Containment
+3.2 Asset Maintenance & R&D""",
         "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
 | :--- | :--- | :--- | :--- |
 | **Pricing & Mix** | Targeted price adjustments (+3.5%) and raw material indexing clauses stabilize gross margins. | **Price Realization Rate > 85%** | **+€0.90M** |
@@ -1003,19 +1023,19 @@ Through which operational levers can total OPEX be sustainably reduced by at lea
 
 ### 4. Resolution & Strategic Approach (R)
 Execution of a comprehensive cost reduction program focused on fleet telematics, warehouse automation, and indirect procurement optimization.""",
-        "mece": """**1. Fleet & Fuel Efficiency (Direct OPEX)**
-1.1 **Route Optimization:** Reduction of empty mileage using AI-assisted dispatching and telematics.
-1.2 **Fuel Management:** Renegotiating fuel card terms and driver training programs for eco-driving.
-1.3 **Maintenance:** Optimization of service cycles and fleet modernization to cut repair expenses.
+        "mece": """1. Fleet & Fuel Efficiency
+1.1 AI Route Optimization
+1.2 Fuel Management & Training
+1.3 Fleet Modernization
 
-**2. Warehouse & Infrastructure Logistics (Facility & Labor)**
-2.1 **Process Automation:** Implementation of barcode scanning and picking route optimization.
-2.2 **Footprint Rationalization:** Consolidation of underutilized warehouse space to slash fixed facility overhead.
-2.3 **Shift Scheduling:** Flexible labor scheduling to eliminate costly overtime premiums.
+2. Warehouse & Facility Logistics
+2.1 Process Automation
+2.2 Footprint Consolidation
+2.3 Flexible Shift Planning
 
-**3. Indirect Procurement & Overhead (Indirect OPEX)**
-3.1 **Supplier Consolidation:** Re-tendering Top-15 indirect vendor contracts (packaging, IT, cleaning).
-3.2 **Administrative Digitization:** Automating freight documentation processing to reduce SG&A ratio.""",
+3. Indirect Procurement & Overhead
+3.1 Supplier Consolidation
+3.2 Administrative Digitization""",
         "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
 | :--- | :--- | :--- | :--- |
 | **Fleet Optimization** | AI dispatching and driver training lower fuel consumption per ton-km by 8%. | **Fuel Efficiency +8%** | **+€1.80M** |
@@ -1034,19 +1054,19 @@ How resilient is the target's organic revenue growth, and which operational valu
 
 ### 4. Resolution & Strategic Approach (R)
 Execution of a Commercial & Operational Due Diligence framework focused on cohort analysis (NRR/GRR), unit economics, and synergy quantification.""",
-        "mece": """**1. Revenue Quality & Customer Base (Top-Line Resilience)**
-1.1 **ARR & Cohort Health:** Evaluation of Net Retention Rate (NRR > 105%) and churn dynamics across customer tiers.
-1.2 **Customer Concentration:** Concentration risk regarding key account dependencies.
-1.3 **Pricing Power:** Potential for contract price uplifts upon upcoming renewals.
+        "mece": """1. Revenue Quality & Customer Base
+1.1 ARR & Cohort Retention
+1.2 Customer Concentration
+1.3 Renewal Pricing Power
 
-**2. Unit Economics & Profitability (EBITDA Quality)**
-2.1 **CAC Payback & LTV:** Ratio of Customer Lifetime Value (LTV) to Customer Acquisition Cost (CAC).
-2.2 **R&D Capitalization:** Scrutiny of capitalized software development costs to ensure EBITDA validity.
-2.3 **Gross Margin Stabilities:** Stabilities of cloud hosting and customer support expense scaling.
+2. Unit Economics & Profitability
+2.1 LTV/CAC Ratio
+2.2 R&D Capitalization Scrutiny
+2.3 Hosting Gross Margin
 
-**3. Synergy Potential & Value Creation (Post-Merger Value)**
-3.1 **Cross-Selling:** Distribution of software products across the investor's portfolio network.
-3.2 **SG&A Synergies:** Consolidation of holding, finance, and legal overhead functions.""",
+3. Synergy Potential & Value Creation
+3.1 Cross-Selling Portfolio
+3.2 SG&A Consolidation""",
         "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
 | :--- | :--- | :--- | :--- |
 | **ARR Resilience** | High Net Retention Rate (> 110%) confirms strong pricing power among enterprise clients. | **NRR > 110%** | **Valuation Safety** |
@@ -1065,19 +1085,19 @@ Which Go-To-Market strategy and commercial channel mix will achieve market entry
 
 ### 4. Resolution & Strategic Approach (R)
 Assessment of market entry barriers, performance channel testing, and localization of fulfillment and checkout workflows.""",
-        "mece": """**1. Market Attractiveness & Competitive Landscape (Market Attractiveness)**
-1.1 **Market Size & Growth:** Target demographic size within the premium consumer segment.
-1.2 **Competitive Intensity:** Price positioning, brand loyalty, and market share of local incumbents.
-1.3 **Regulatory & Tax:** Local consumer protection compliance, VAT registration, and labeling mandates.
+        "mece": """1. Market Attractiveness & Competition
+1.1 Market Size & Demographics
+1.2 Competitive Intensity
+1.3 Regulatory & Tax Compliance
 
-**2. Go-To-Market & Commercial Strategy (Commercial Strategy)**
-2.1 **Marketing Efficiency:** Expected Customer Acquisition Costs (CAC) across channels (Social, Search, Influencers).
-2.2 **Localization:** Translation, localized payment methods, and trust badges at checkout.
-2.3 **Sortimentsstrategie:** Tailoring product catalog bundles to local consumer preferences.
+2. Go-To-Market & Commercial Strategy
+2.1 Marketing CAC Optimization
+2.2 Checkout Localization
+2.3 Product Catalog Bundling
 
-**3. Operational Execution & Fulfillment (Operations)**
-3.1 **Logistics & Delivery:** Integration of local carriers for rapid delivery SLAs (< 48 hours).
-3.2 **Returns Management:** Establishing local return processing hubs to optimize logistics reverse-processing expenses.""",
+3. Operational Execution & Fulfillment
+3.1 Local Carrier Integration
+3.2 Local Returns Hub""",
         "hypothesis": """| Focus Area | Primary Working Hypothesis | KPI / Target Benchmark | Expected EBIT Impact |
 | :--- | :--- | :--- | :--- |
 | **Marketing CAC** | Localized influencer and search campaigns maintain CAC below profitability thresholds. | **CAC < €35 / New Customer** | **Payback < 9 Months** |
@@ -1110,9 +1130,9 @@ if run_analysis:
             precached_dict = PRECACHED_EN if language == "English" else PRECACHED_DE
             precached = precached_dict.get(matched_framework, precached_dict["General Profitability"])
 
-            st.session_state["out_analysis"] = precached["analysis"]
-            st.session_state["out_mece"] = precached["mece"]
-            st.session_state["out_hypothesis"] = precached["hypothesis"]
+            st.session_state["out_analysis"] = clean_output_text(precached["analysis"])
+            st.session_state["out_mece"] = clean_output_text(precached["mece"])
+            st.session_state["out_hypothesis"] = clean_output_text(precached["hypothesis"])
             st.session_state["has_analysis"] = True
             st.info(ui_demo_info)
         else:
@@ -1171,9 +1191,9 @@ if run_analysis:
                 try:
                     result = crew.kickoff()
                     status.update(label=ui_status_done, state="complete", expanded=False)
-                    st.session_state["out_analysis"] = result.tasks_output[0].raw
-                    st.session_state["out_mece"] = result.tasks_output[1].raw
-                    st.session_state["out_hypothesis"] = result.tasks_output[2].raw
+                    st.session_state["out_analysis"] = clean_output_text(result.tasks_output[0].raw)
+                    st.session_state["out_mece"] = clean_output_text(result.tasks_output[1].raw)
+                    st.session_state["out_hypothesis"] = clean_output_text(result.tasks_output[2].raw)
                     st.session_state["has_analysis"] = True
                 except Exception as e:
                     err_str = str(e)
