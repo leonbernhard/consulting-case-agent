@@ -13,6 +13,86 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import pypdf
 
+def create_pdf_friendly_html(markdown_content: str) -> str:
+    # 1. Säubere unvollständige <br> Tags
+    clean_md = markdown_content.replace("<br>", "<br/>")
+
+    # 2. Wandle Markdown inkl. Tabellen-Erweiterung in HTML um
+    html_body = markdown.markdown(clean_md, extensions=["tables", "fenced_code"])
+
+    # 3. Hülle den Body in CSS-Druckregeln ein
+    full_html = f"""
+    <!DOCTYPE html>
+    <html lang="de">
+    <head>
+        <meta charset="utf-8">
+        <title>Analysebericht</title>
+        <style>
+            @media print {{
+                @page {{
+                    size: A4;
+                    margin: 15mm 12mm 15mm 12mm;
+                }}
+                body {{
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }}
+                .no-print {{ display: none !important; }}
+            }}
+            
+            body {{
+                font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+                color: #1e293b;
+                line-height: 1.5;
+                font-size: 11pt;
+            }}
+            
+            /* Verhindert Seitenumbrüche mitten in Tabellen oder Absätzen */
+            table, tr, td, th, ul, ol, .card {{
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }}
+
+            h1, h2, h3 {{
+                color: #0f172a;
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+            }}
+            
+            /* Formatierung für saubere Tabellen im Druck */
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 14px 0;
+            }}
+            
+            th {{
+                background-color: #f1f5f9 !important;
+                color: #0f172a;
+                font-weight: 600;
+                text-align: left;
+                padding: 8px 10px;
+                border: 1px solid #cbd5e1;
+            }}
+            
+            td {{
+                padding: 8px 10px;
+                border: 1px solid #cbd5e1;
+                vertical-align: top;
+            }}
+            
+            tr:nth-child(even) td {{
+                background-color: #f8fafc !important;
+            }}
+        </style>
+    </head>
+    <body>
+        {html_body}
+    </body>
+    </html>
+    """
+    return full_html
+
 def extract_text_from_file(uploaded_file):
     """Extrahiert Text aus PDF-, DOCX- und TXT-Dateien."""
     file_type = uploaded_file.name.split('.')[-1].lower()
