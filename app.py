@@ -13,86 +13,6 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import pypdf
 
-def create_pdf_friendly_html(markdown_content: str) -> str:
-    # 1. Säubere unvollständige <br> Tags
-    clean_md = markdown_content.replace("<br>", "<br/>")
-
-    # 2. Wandle Markdown inkl. Tabellen-Erweiterung in HTML um
-    html_body = markdown.markdown(clean_md, extensions=["tables", "fenced_code"])
-
-    # 3. Hülle den Body in CSS-Druckregeln ein
-    full_html = f"""
-    <!DOCTYPE html>
-    <html lang="de">
-    <head>
-        <meta charset="utf-8">
-        <title>Analysebericht</title>
-        <style>
-            @media print {{
-                @page {{
-                    size: A4;
-                    margin: 15mm 12mm 15mm 12mm;
-                }}
-                body {{
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }}
-                .no-print {{ display: none !important; }}
-            }}
-            
-            body {{
-                font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
-                color: #1e293b;
-                line-height: 1.5;
-                font-size: 11pt;
-            }}
-            
-            /* Verhindert Seitenumbrüche mitten in Tabellen oder Absätzen */
-            table, tr, td, th, ul, ol, .card {{
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-            }}
-
-            h1, h2, h3 {{
-                color: #0f172a;
-                page-break-after: avoid !important;
-                break-after: avoid !important;
-            }}
-            
-            /* Formatierung für saubere Tabellen im Druck */
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin: 14px 0;
-            }}
-            
-            th {{
-                background-color: #f1f5f9 !important;
-                color: #0f172a;
-                font-weight: 600;
-                text-align: left;
-                padding: 8px 10px;
-                border: 1px solid #cbd5e1;
-            }}
-            
-            td {{
-                padding: 8px 10px;
-                border: 1px solid #cbd5e1;
-                vertical-align: top;
-            }}
-            
-            tr:nth-child(even) td {{
-                background-color: #f8fafc !important;
-            }}
-        </style>
-    </head>
-    <body>
-        {html_body}
-    </body>
-    </html>
-    """
-    return full_html
-
 def extract_text_from_file(uploaded_file):
     """Extrahiert Text aus PDF-, DOCX- und TXT-Dateien."""
     file_type = uploaded_file.name.split('.')[-1].lower()
@@ -313,100 +233,11 @@ def generate_mece_dot_string(mece_text):
     return '\n'.join(dot_lines)
 
 def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, fw_label, sec1, sec2, sec3, footer_text):
-    """Erstellt ein professionelles Executive HTML Dashboard mit korrekten A4-PDF-Druckrändern."""
-    def md_to_html(md_text):
-        lines = md_text.strip().split('\n')
-        html_out = []
-        in_list = False
-        table_lines = []
-
-        def format_text(txt):
-            txt = html.escape(txt.strip())
-            txt = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', txt)
-            txt = re.sub(r'\*(.*?)\*', r'<em>\1</em>', txt)
-            return txt
-
-        def render_table(t_lines):
-            if not t_lines:
-                return ""
-            rows = []
-            for line in t_lines:
-                cleaned = line.strip().strip('|')
-                cells = [c.strip() for c in cleaned.split('|')]
-                if all(re.match(r'^:?-+:?$', c) for c in cells if c):
-                    continue
-                rows.append(cells)
-
-            if not rows:
-                return ""
-
-            out = ['<table class="executive-table">']
-            out.append('<colgroup><col style="width: 20%;"><col style="width: 38%;"><col style="width: 22%;"><col style="width: 20%;"></colgroup>')
-            out.append('<thead><tr>')
-            for cell in rows[0]:
-                out.append(f'<th>{format_text(cell)}</th>')
-            out.append('</tr></thead><tbody>')
-
-            for row in rows[1:]:
-                out.append('<tr>')
-                for cell in row:
-                    out.append(f'<td>{format_text(cell)}</td>')
-                out.append('</tr>')
-            out.append('</tbody></table>')
-            return '\n'.join(out)
-
-        for line in lines:
-            line_str = line.strip()
-
-            if '|' in line_str and line_str.count('|') >= 2:
-                if in_list:
-                    html_out.append('</ul>')
-                    in_list = False
-                table_lines.append(line_str)
-                continue
-            else:
-                if table_lines:
-                    html_out.append(render_table(table_lines))
-                    table_lines = []
-
-            if not line_str:
-                continue
-
-            if re.match(r'^\d+\.\d+', line_str) or re.match(r'^[*\-]\s*\d+\.\d+', line_str):
-                if in_list:
-                    html_out.append('</ul>')
-                    in_list = False
-                clean_txt = re.sub(r'^[*\-]\s*', '', line_str)
-                html_out.append(f'<p style="margin-left: 24px; margin-top: 3px; margin-bottom: 5px;">{format_text(clean_txt)}</p>')
-            elif re.match(r'^\d+\.\s', line_str) or re.match(r'^[*\-]\s*\d+\.\s', line_str):
-                if in_list:
-                    html_out.append('</ul>')
-                    in_list = False
-                clean_txt = re.sub(r'^[*\-]\s*', '', line_str)
-                html_out.append(f'<p style="margin-top: 14px; margin-bottom: 4px; font-weight: 600; color: #0F2C59;">{format_text(clean_txt)}</p>')
-            elif line_str.startswith('### '):
-                html_out.append(f'<h3>{format_text(line_str[4:])}</h3>')
-            elif line_str.startswith('## '):
-                html_out.append(f'<h2>{format_text(line_str[3:])}</h2>')
-            elif line_str.startswith('# '):
-                html_out.append(f'<h2>{format_text(line_str[2:])}</h2>')
-            elif line_str.startswith('- ') or line_str.startswith('* '):
-                if not in_list:
-                    html_out.append('<ul class="executive-list">')
-                    in_list = True
-                html_out.append(f'<li>{format_text(line_str[2:])}</li>')
-            else:
-                if in_list:
-                    html_out.append('</ul>')
-                    in_list = False
-                html_out.append(f'<p>{format_text(line_str)}</p>')
-
-        if table_lines:
-            html_out.append(render_table(table_lines))
-        if in_list:
-            html_out.append('</ul>')
-
-        return '\n'.join(html_out)
+    """Erstellt ein professionelles Executive HTML Dashboard mit sauberen Markdown-Tabellen & A4-PDF-Druckregeln."""
+    
+    def convert_md(text):
+        clean_text = text.replace("<br>", "<br/>")
+        return markdown.markdown(clean_text, extensions=["tables", "fenced_code"])
 
     html_content = f"""<!DOCTYPE html>
 <html lang="de">
@@ -414,66 +245,86 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
-        @page {{ 
-            size: A4 portrait; 
-            margin: 18mm 18mm 18mm 18mm; 
-        }}
-        body {{ 
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; 
-            line-height: 1.5; 
-            color: #1E293B; 
-            background-color: #F8FAFC; 
-            margin: 0; 
-            padding: 24px; 
-        }}
-        .container {{ 
-            max-width: 850px; 
-            margin: 0 auto; 
-            background: #FFFFFF; 
-            padding: 32px 36px; 
-            border-radius: 8px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
-            box-sizing: border-box; 
-        }}
-        .header {{ border-bottom: 2px solid #0F2C59; padding-bottom: 12px; margin-bottom: 22px; }}
-        .badge {{ display: inline-block; background: #0F2C59; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; }}
-        h1 {{ color: #0F2C59; font-size: 22px; margin: 4px 0; font-weight: 700; }}
-        h2 {{ color: #0F2C59; font-size: 15px; border-bottom: 1px solid #E2E8F0; padding-bottom: 5px; margin-top: 22px; margin-bottom: 10px; font-weight: 600; page-break-after: avoid; }}
-        h3 {{ color: #334155; font-size: 13px; margin-top: 14px; margin-bottom: 5px; font-weight: 600; page-break-after: avoid; }}
-        p, li {{ font-size: 11.5px; color: #334155; margin-bottom: 5px; }}
-        ul.executive-list {{ padding-left: 20px; margin: 6px 0; }}
-        ul.executive-list li {{ margin-bottom: 3px; }}
-
-        .executive-table {{ width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 10.5px; page-break-inside: avoid; table-layout: fixed; }}
-        .executive-table th {{ background-color: #0F2C59; color: #FFFFFF; font-weight: bold; text-align: left; padding: 7px 8px; border: 1px solid #0F2C59; white-space: nowrap; }}
-        .executive-table td {{ border: 1px solid #CBD5E1; padding: 7px 8px; vertical-align: top; word-wrap: break-word; }}
-        .executive-table tr:nth-child(even) {{ background-color: #F8FAFC; }}
-
-        .section-block {{ page-break-inside: avoid; }}
-        .footer {{ margin-top: 30px; padding-top: 10px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; text-align: center; }}
-
         @media print {{
             @page {{
                 size: A4 portrait;
-                margin: 18mm 18mm 18mm 18mm !important;
+                margin: 15mm 12mm 15mm 12mm !important;
             }}
-            html, body {{ 
-                background: #FFFFFF !important; 
-                margin: 0 !important; 
-                padding: 0 !important; 
+            html, body {{
+                background: #FFFFFF !important;
+                margin: 0 !important;
+                padding: 0 !important;
                 width: 100% !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }}
-            .container {{ 
-                box-shadow: none !important; 
+            .container {{
+                box-shadow: none !important;
                 border: none !important;
-                padding: 0 !important; 
-                margin: 0 !important; 
-                width: 100% !important; 
-                max-width: 100% !important; 
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
             }}
+            .no-print {{ display: none !important; }}
         }}
+        
+        body {{
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            line-height: 1.5;
+            color: #1E293B;
+            background-color: #F8FAFC;
+            margin: 0;
+            padding: 24px;
+        }}
+        .container {{
+            max-width: 850px;
+            margin: 0 auto;
+            background: #FFFFFF;
+            padding: 32px 36px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+        }}
+        .header {{ border-bottom: 2px solid #0F2C59; padding-bottom: 12px; margin-bottom: 22px; }}
+        .badge {{ display: inline-block; background: #0F2C59; color: #FFFFFF; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; }}
+        h1 {{ color: #0F2C59; font-size: 22px; margin: 4px 0; font-weight: 700; }}
+        h2 {{ color: #0F2C59; font-size: 15px; border-bottom: 1px solid #E2E8F0; padding-bottom: 5px; margin-top: 22px; margin-bottom: 10px; font-weight: 600; page-break-after: avoid; break-after: avoid; }}
+        h3 {{ color: #334155; font-size: 13px; margin-top: 14px; margin-bottom: 5px; font-weight: 600; page-break-after: avoid; break-after: avoid; }}
+        p, li {{ font-size: 11.5px; color: #334155; margin-bottom: 5px; }}
+
+        /* Verhindert Seitenumbrüche mitten in Tabellen oder Blöcken */
+        .section-block, table, tr, td, th {{
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }}
+
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0;
+            font-size: 10.5px;
+            table-layout: auto;
+        }}
+        th {{
+            background-color: #0F2C59 !important;
+            color: #FFFFFF !important;
+            font-weight: bold;
+            text-align: left;
+            padding: 8px 10px;
+            border: 1px solid #0F2C59;
+        }}
+        td {{
+            border: 1px solid #CBD5E1;
+            padding: 8px 10px;
+            vertical-align: top;
+            word-wrap: break-word;
+        }}
+        tr:nth-child(even) td {{
+            background-color: #F8FAFC !important;
+        }}
+
+        .footer {{ margin-top: 30px; padding-top: 10px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; text-align: center; }}
     </style>
 </head>
 <body>
@@ -486,17 +337,17 @@ def create_html_report(title, framework, analysis, mece, hypothesis, sub_text, f
 
         <div class="section-block">
             <h2>{sec1}</h2>
-            {md_to_html(analysis)}
+            {convert_md(analysis)}
         </div>
 
         <div class="section-block">
             <h2>{sec2}</h2>
-            {md_to_html(mece)}
+            {convert_md(mece)}
         </div>
 
         <div class="section-block">
             <h2>{sec3}</h2>
-            {md_to_html(hypothesis)}
+            {convert_md(hypothesis)}
         </div>
 
         <div class="footer">
@@ -976,7 +827,8 @@ STRIKTE FORMATIERUNGS-REGELN (STRIKT EINHALTEN):
 3. KEINE H1-Überschriften (`#`) generieren. Nutze ausschließlich Unterüberschriften ab Ebene 2 (`##`).
 4. Für Tabellen ausschließlich sauberes Markdown-Tabellenformat nutzen (`| Spalte 1 | Spalte 2 |`).
 5. Antworte extrem präzise, auf den Punkt fokussiert und ohne Floskeln, um die Verarbeitungszeit kurz zu halten.
-6. Gesamtsprache der Ausgabe: Strikt auf {language}.
+6. MECE-BAUM STRUKTUR-LIMIT: Maximal 3 bis 4 Hauptkategorien (Ebene 1). Maximal 2 bis 3 Unterpunkte pro Kategorie (Ebene 2). Jeder Unterpunkt DARF MAXIMAL 5 bis 8 WÖRTER lang sein (keine Schachtelsätze!).
+7. Gesamtsprache der Ausgabe: Strikt auf {language}.
 """
 
 # 8. PRECACHED DEMO ERGEBNISSE FÜR ALLE 4 FRAMEWORKS (DEUTSCH & ENGLISCH)
